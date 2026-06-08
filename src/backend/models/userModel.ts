@@ -89,5 +89,12 @@ export const updatePassword = async (id: string, password: string): Promise<void
 };
 
 export const deleteUser = async (id: string): Promise<void> => {
-  await pool.query('UPDATE technicians SET active = false, updated_at = NOW() WHERE id = $1', [id]);
+  await pool.query(
+    `UPDATE technicians 
+     SET active = false, 
+         username = username || '-deleted-' || extract(epoch from now())::int, 
+         updated_at = NOW() 
+     WHERE id = $1`, 
+    [id]
+  );
 };

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Search, CheckCircle2, AlertCircle, CalendarClock,
   PlayCircle, RefreshCw, User, MapPin, ClipboardCheck,
-  TrendingUp, BarChart3, Printer, History
+  TrendingUp, BarChart3, Printer, History, FileText
 } from 'lucide-react';
 import { StatCard } from '../components/dashboard/StatCard';
 import { DateFilter } from '../components/dashboard/DateFilter';

@@ -1,0 +1,5 @@
+{
+  "name": "InfraCheck BR",
+  "description": "Sistema completo de checklist de infraestrutura de TI para visitas técnicas, com geração de relatórios em PDF, DOCX e TXT.",
+  "requestFramePermissions": []
+}

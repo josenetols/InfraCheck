@@ -1,0 +1,6 @@
+@echo off
+set PATH=%PATH%;C:\Program Files\nodejs
+echo Instalando dependencias...
+call "C:\Program Files\nodejs\npm.cmd" install
+echo Iniciando servidor de desenvolvimento...
+call "C:\Program Files\nodejs\npm.cmd" run dev

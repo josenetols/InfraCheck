@@ -167,17 +167,17 @@ export const CpdSection = () => {
       <div className="mb-6 border-t pt-4">
         <div className="flex justify-between items-center mb-3">
             <InputLabel>2.2 Switches de Rede</InputLabel>
-            <button onClick={addSwitch} className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200 flex items-center gap-1 font-medium"><Plus size={14} /> Adicionar</button>
+            <button type="button" onClick={addSwitch} className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200 flex items-center gap-1 font-medium"><Plus size={14} /> Adicionar</button>
         </div>
         <div className="space-y-3">
             {data.switches.map((sw, index) => (
                 <div key={sw.id} className="bg-slate-50 p-4 rounded-lg border border-slate-200 relative group">
-                    <button onClick={() => removeSwitch(sw.id)} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 p-1"><Trash2 size={16} /></button>
+                    <button type="button" onClick={() => removeSwitch(sw.id)} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 p-1"><Trash2 size={16} /></button>
                     <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                         <div><label className="text-xs text-slate-500 block mb-1">Qtd.</label><QuantitySelector value={sw.quantity} onChange={val => updateSwitch(sw.id, 'quantity', val)} /></div>
-                        <div className="col-span-2"><label className="text-xs text-slate-500">Marca/Modelo</label><StyledInput placeholder="Ex: Cisco 2960" value={`${sw.brand} ${sw.model}`.trim()} onChange={e => updateSwitch(sw.id, 'brand', e.target.value)} /></div>
-                        <div><label className="text-xs text-slate-500">Portas</label><StyledInput type="number" placeholder="24" value={sw.ports} onChange={e => updateSwitch(sw.id, 'ports', parseInt(e.target.value))} /></div>
-                        <div className="col-span-2"><label className="text-xs text-slate-500 mb-1 block">Condição</label><SegmentedControl value={sw.conditionOk} onChange={val => updateSwitch(sw.id, 'conditionOk', val)} options={[{ label: 'OK', value: true, color: 'text-green-600' }, { label: 'Falha', value: false, color: 'text-red-600' }]} /></div>
+                        <div className="col-span-2"><label className="text-xs text-slate-500 block mb-1">Marca/Modelo</label><StyledInput placeholder="Ex: Cisco 2960" value={`${sw.brand} ${sw.model}`.trim()} onChange={e => updateSwitch(sw.id, 'brand', e.target.value)} /></div>
+                        <div><label className="text-xs text-slate-500 block mb-1">Portas</label><StyledInput type="number" placeholder="24" value={sw.ports} onChange={e => updateSwitch(sw.id, 'ports', parseInt(e.target.value))} /></div>
+                        <div className="col-span-2"><label className="text-xs text-slate-500 block mb-1">Condição</label><SegmentedControl value={sw.conditionOk} onChange={val => updateSwitch(sw.id, 'conditionOk', val)} options={[{ label: 'OK', value: true, color: 'text-green-600' }, { label: 'Falha', value: false, color: 'text-red-600' }]} /></div>
                     </div>
                 </div>
             ))}
@@ -186,16 +186,16 @@ export const CpdSection = () => {
       <div className="mb-6 border-t pt-4">
         <div className="flex justify-between items-center mb-3">
             <InputLabel>2.3 Antenas Wi-Fi</InputLabel>
-            <button onClick={addAntenna} className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200 flex items-center gap-1 font-medium"><Plus size={14} /> Adicionar</button>
+            <button type="button" onClick={addAntenna} className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200 flex items-center gap-1 font-medium"><Plus size={14} /> Adicionar</button>
         </div>
         <div className="space-y-3">
             {data.antennas.map((ant) => (
                 <div key={ant.id} className="bg-slate-50 p-4 rounded-lg border border-slate-200 relative group">
-                    <button onClick={() => removeAntenna(ant.id)} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 p-1"><Trash2 size={16} /></button>
+                    <button type="button" onClick={() => removeAntenna(ant.id)} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 p-1"><Trash2 size={16} /></button>
                     <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                         <div><label className="text-xs text-slate-500 block mb-1">Qtd.</label><QuantitySelector value={ant.quantity} onChange={val => updateAntenna(ant.id, 'quantity', val)} /></div>
-                        <div className="col-span-2"><label className="text-xs text-slate-500">Marca/Modelo</label><StyledInput placeholder="Ex: UniFi U6" value={ant.brand} onChange={e => updateAntenna(ant.id, 'brand', e.target.value)} /></div>
-                        <div className="col-span-3"><label className="text-xs text-slate-500">Local</label><StyledInput placeholder="Ex: Teto - Recepção" value={ant.location} onChange={e => updateAntenna(ant.id, 'location', e.target.value)} /></div>
+                        <div className="col-span-2"><label className="text-xs text-slate-500 block mb-1">Marca/Modelo</label><StyledInput placeholder="Ex: UniFi U6" value={ant.brand} onChange={e => updateAntenna(ant.id, 'brand', e.target.value)} /></div>
+                        <div className="col-span-3"><label className="text-xs text-slate-500 block mb-1">Local</label><StyledInput placeholder="Ex: Teto - Recepção" value={ant.location} onChange={e => updateAntenna(ant.id, 'location', e.target.value)} /></div>
                     </div>
                 </div>
             ))}

@@ -3,6 +3,7 @@
  */
 import { pool } from '../../lib/db.js';
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 
 const SALT_ROUNDS = 12;
 
@@ -36,7 +37,7 @@ export const getTechnicians = async (): Promise<TechnicianRow[]> => {
 };
 
 export const upsertTechnician = async (data: CreateTechnicianData): Promise<string> => {
-  const techId = data.id || crypto.randomUUID();
+  const techId = data.id || randomUUID();
   const role = data.role || 'technician';
 
   if (data.password) {

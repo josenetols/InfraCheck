@@ -1,29 +1,63 @@
 import React, { useState } from 'react';
-import { CheckCircle2, AlertCircle, Download, FileText, Mail, LayoutDashboard, Hash } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Download, FileText, Mail, LayoutDashboard, Hash, Copy, Check } from 'lucide-react';
 import { useChecklist } from '../contexts/ChecklistContext';
 import { getConclusion, downloadDOCX, downloadPDF, downloadTXT } from '../utils/exportService';
 import { EmailModal } from '../components/EmailModal';
+
+/** Copia texto para a área de transferência com fallback para HTTP (sem HTTPS) */
+const copyToClipboard = (text: string): Promise<void> => {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  }
+  // Fallback: cria um textarea temporário e usa execCommand
+  return new Promise((resolve, reject) => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      resolve();
+    } catch (err) {
+      document.body.removeChild(textarea);
+      reject(err);
+    }
+  });
+};
 
 export const ReportPreview = ({ onEdit, onDashboard, checklistId }: { onEdit: () => void, onDashboard: () => void, checklistId?: string | null }) => {
   const { data } = useChecklist();
   const conclusion = getConclusion(data);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const handleSendEmail = async (recipientEmail: string, subject: string, message: string) => {
+  const handleCopy = () => {
+    copyToClipboard(conclusion)
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2500); })
+      .catch(() => alert('Não foi possível copiar. Selecione o texto manualmente.'));
+  };
+
+  const handleSendEmail = async (recipientEmail: string, subject: string, message: string, data: any) => {
     try {
-      const pdfBase64 = "base64_placeholder"; 
-      
-      const response = await fetch('/api/send-report', {
+      const response = await fetch('/api/email/send-report', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipientEmail, subject, message, pdfBase64 }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('infracheck_auth_token')}`
+        },
+        body: JSON.stringify({ recipientEmail, subject, message, data }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Erro ao enviar e-mail');
       }
-      alert('E-mail enviado com sucesso!');
+      alert('E-mail enviado com sucesso! ✅');
     } catch (error) {
       console.error('Error sending email:', error);
       throw error;
@@ -78,8 +112,19 @@ export const ReportPreview = ({ onEdit, onDashboard, checklistId }: { onEdit: ()
            </div>
         </div>
         <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r-lg">
-            <h3 className="font-bold text-blue-900 mb-2">Conclusão Gerada</h3>
-            <p className="text-slate-800 text-sm leading-relaxed">{conclusion}</p>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-bold text-blue-900">Texto para E-mail</h3>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition font-medium ${
+                  copied ? 'bg-green-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {copied ? <><Check size={13}/> Copiado!</> : <><Copy size={13}/> Copiar</>}
+              </button>
+            </div>
+            <pre className="text-slate-800 text-sm leading-relaxed whitespace-pre-wrap font-sans">{conclusion}</pre>
         </div>
         <div className="border-t pt-6">
             <h3 className="text-lg font-bold mb-4">Exportar Relatório</h3>
@@ -109,6 +154,8 @@ export const ReportPreview = ({ onEdit, onDashboard, checklistId }: { onEdit: ()
         onClose={() => setIsEmailModalOpen(false)}
         onSend={handleSendEmail}
         defaultSubject={`Relatório de Checklist - ${data.locationName}`}
+        defaultMessage={conclusion}
+        data={data}
       />
     </div>
   );

@@ -3,6 +3,7 @@
  */
 import { pool } from '../../lib/db.js';
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 
 const SALT_ROUNDS = 12;
 
@@ -15,6 +16,8 @@ export interface UserRow {
   active: boolean;
   region_name: string | null;
   role: 'admin' | 'technician';
+  email: string | null;
+  smtp_password: string | null;
 }
 
 export interface CreateUserData {
@@ -24,6 +27,8 @@ export interface CreateUserData {
   region_name?: string;
   role: 'admin' | 'technician';
   password?: string;
+  email?: string;
+  smtp_password?: string;
 }
 
 export interface UpdateUserData {
@@ -31,27 +36,29 @@ export interface UpdateUserData {
   username: string;
   region_name?: string;
   role: 'admin' | 'technician';
+  email?: string;
+  smtp_password?: string;
 }
 
 // ─── Queries ──────────────────────────────────────────────────────────
 
 export const getUsers = async (): Promise<UserRow[]> => {
   const result = await pool.query(
-    'SELECT id, name, username, active, region_name, role FROM technicians WHERE active = true ORDER BY name'
+    'SELECT id, name, username, active, region_name, role, email, smtp_password FROM technicians WHERE active = true ORDER BY name'
   );
   return result.rows;
 };
 
 export const getUserByUsername = async (username: string): Promise<UserRow | null> => {
   const result = await pool.query(
-    'SELECT id, name, username, active, region_name, role FROM technicians WHERE username = $1 AND active = true',
+    'SELECT id, name, username, active, region_name, role, email, smtp_password FROM technicians WHERE username = $1 AND active = true',
     [username]
   );
   return result.rows.length > 0 ? result.rows[0] : null;
 };
 
 export const createUser = async (data: CreateUserData): Promise<string> => {
-  const id = data.id || crypto.randomUUID();
+  const id = data.id || randomUUID();
   let hash = null;
   
   if (data.password) {
@@ -59,9 +66,9 @@ export const createUser = async (data: CreateUserData): Promise<string> => {
   }
 
   await pool.query(
-    `INSERT INTO technicians (id, name, username, active, region_name, role, password_hash, must_change_password)
-     VALUES ($1, $2, $3, true, $4, $5, $6, true)`,
-    [id, data.name, data.username, data.region_name || null, data.role, hash]
+    `INSERT INTO technicians (id, name, username, active, region_name, role, password_hash, must_change_password, email, smtp_password)
+     VALUES ($1, $2, $3, true, $4, $5, $6, true, $7, $8)`,
+    [id, data.name, data.username, data.region_name || null, data.role, hash, data.email || null, data.smtp_password || null]
   );
 
   return id;
@@ -74,9 +81,11 @@ export const updateUser = async (id: string, data: UpdateUserData): Promise<void
        username = $2, 
        region_name = $3, 
        role = $4, 
+       email = $5,
+       smtp_password = $6,
        updated_at = NOW() 
-     WHERE id = $5`,
-    [data.name, data.username, data.region_name || null, data.role, id]
+     WHERE id = $7`,
+    [data.name, data.username, data.region_name || null, data.role, data.email || null, data.smtp_password || null, id]
   );
 };
 

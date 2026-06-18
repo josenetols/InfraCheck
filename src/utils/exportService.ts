@@ -41,36 +41,78 @@ const getImageDataUrl = async (photo: Photo): Promise<string | null> => {
 };
 
 export const getConclusion = (data: ChecklistData): string => {
-  const switchCount = data.switches.reduce((acc, s) => acc + s.quantity, 0);
-  const antennaCount = data.antennas.reduce((acc, a) => acc + a.quantity, 0);
+  const visitDate = new Date(data.visitDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  const technicianName = data.technicianName || 'Técnico';
 
-  let text = `A visita técnica realizada em ${new Date(data.visitDate).toLocaleDateString('pt-BR')} ao local "${data.locationName}" `;
-  text += `identificou uma infraestrutura composta por ${switchCount} switch(es) de rede e ${antennaCount} antena(s) Wi-Fi. `;
+  // ─── Cabeçalho do e-mail ────────────────────────────────────────────────────
+  let text = `Prezados,\n\n`;
+  text += `O checklist foi realizado no ${data.locationName} pelo departamento Field TI, na data de ${visitDate}. `;
+  text += `Durante a visita, foi analisada toda a infraestrutura de rede cabeada, Wi-Fi e computadores.\n\n`;
+  text += `Pontos identificados:\n\n`;
+
+  // ─── Rede Cabeada ───────────────────────────────────────────────────────────
+  text += `Rede cabeada:\n`;
+  const hasNetworkProblems = !data.networkPointsOk && data.problematicNetworkPoints && data.problematicNetworkPoints.length > 0;
 
   if (data.cableCondition === 'Desorganizado') {
-    text += `A organização do cabeamento estruturado encontra-se crítica (Desorganizada), necessitando de intervenção. `;
+    text += `O cabeamento estruturado encontra-se desorganizado, necessitando de intervenção urgente de organização.\n`;
   } else if (data.cableCondition === 'Parcial') {
-    text += `A organização dos cabos apresenta pontos de melhoria (Parcial). `;
+    text += `Foram identificados pontos de rede necessitando adequação ao padrão.\n`;
+  } else if (hasNetworkProblems) {
+    text += `Foram identificados pontos de rede fora do padrão necessitando adequação.\n`;
   } else {
-    text += `O cabeamento estruturado encontra-se devidamente organizado. `;
+    text += `O cabeamento estruturado encontra-se organizado e dentro do padrão.\n`;
   }
 
-  if (data.hasFirewall) {
-    text += `A segurança perimetral é gerida por firewall ${data.firewallBrand}, estando atualmente ${data.firewallWorking ? 'operacional' : 'com falhas registradas'}. `;
+  // Pontos de rede com defeito
+  if (hasNetworkProblems) {
+    data.problematicNetworkPoints.forEach((np) => {
+      text += `- ${np.location}${np.description ? `: ${np.description}` : ''}.\n`;
+    });
+  }
+  text += `\n`;
+
+  // ─── Wi-Fi ──────────────────────────────────────────────────────────────────
+  text += `Wi-Fi:\n`;
+  const hasAntennaFault = data.antennas.some(a => !a.isWorking);
+  if (hasAntennaFault) {
+    const faultyAntennas = data.antennas.filter(a => !a.isWorking);
+    text += `Foram identificadas falhas em antenas Wi-Fi:\n`;
+    faultyAntennas.forEach(a => {
+      text += `- ${a.brand || 'Antena'}${a.location ? ` (${a.location})` : ''}: inoperante.\n`;
+    });
+  } else if (data.antennas.length > 0) {
+    text += `O sinal Wi-Fi encontra-se propício nas dependências do local.\n`;
   } else {
-    text += `CRÍTICO: Não foi identificado firewall de borda dedicado no local, o que representa risco à segurança da rede. `;
+    text += `Nenhuma antena Wi-Fi registrada no local.\n`;
+  }
+  text += `\n`;
+
+  // ─── Equipamentos ───────────────────────────────────────────────────────────
+  text += `Equipamentos:\n`;
+  if (!data.allMachinesOk && data.problematicMachines && data.problematicMachines.length > 0) {
+    data.problematicMachines.forEach((pm) => {
+      const id = pm.identifier ? `${pm.identifier} – ` : '';
+      const proc = pm.processorGen ? ` (${pm.processorGen})` : '';
+      const os = !pm.osUpdated ? ` | Sem Windows 11` : '';
+      const desc = pm.problemDescription ? `${pm.problemDescription}` : 'Anomalia identificada';
+      text += `- ${id}${desc}${proc}${os}.\n`;
+    });
+  } else {
+    text += `Todos os equipamentos analisados encontram-se em plenas condições operacionais.\n`;
+  }
+  text += `\n`;
+
+  // ─── Observações gerais ──────────────────────────────────────────────────────
+  if (data.observations) {
+    text += `Observações gerais:\n${data.observations}\n\n`;
   }
 
-  const issues: string[] = [];
-  if (!data.allMachinesOk) issues.push('estações de trabalho com anomalias de hardware ou software');
-  if (!data.networkPointsOk) issues.push('pontos de rede física danificados ou inoperantes');
-  if (!data.employeesSatisfied) issues.push('insatisfação reportada pelos usuários quanto aos serviços');
-
-  if (issues.length > 0) {
-    text += `Foram diagnosticados os seguintes pontos de atenção que requerem plano de ação: ${issues.join(', ')}. `;
-  } else {
-    text += `De modo geral, a infraestrutura avaliada apresenta estabilidade e boas condições de uso. `;
-  }
+  // ─── Rodapé ─────────────────────────────────────────────────────────────────
+  text += `Fico à disposição para esclarecimentos e alinhamento das tratativas necessárias.\n\n`;
+  text += `Atenciosamente,\n`;
+  text += `${technicianName}\n`;
+  text += `TI – Field GO`;
 
   return text;
 };

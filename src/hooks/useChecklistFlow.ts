@@ -120,11 +120,16 @@ export const useChecklistFlow = (data: ChecklistData, setData: React.Dispatch<Re
       alert('Preencha o Nome do Local e do Técnico para continuar.');
       return;
     }
+    setFlowLoading(true);
     const finalData = { ...data, isBaseline: true };
     const id = await saveChecklistData(data.locationName, finalData);
-    if (id) setSavedChecklistId(id);
-    setView('preview');
-    window.scrollTo(0, 0);
+    if (id) {
+      await loadChecklistForReport(id);
+    } else {
+      setView('preview');
+      window.scrollTo(0, 0);
+      setFlowLoading(false);
+    }
   };
 
   /**
@@ -148,12 +153,14 @@ export const useChecklistFlow = (data: ChecklistData, setData: React.Dispatch<Re
       const restored: ChecklistData = {
         ...raw,
         cpdPhotos: (raw.cpdPhotos || []).map((p: any) => {
+          if (p.url && !p.previewUrl) p.previewUrl = p.url;
           if (p.base64 && !p.previewUrl) return { ...p, previewUrl: p.base64.startsWith('data:') ? p.base64 : `data:image/jpeg;base64,${p.base64}` };
           return p;
         }),
         problematicMachines: (raw.problematicMachines || []).map((m: any) => ({
           ...m,
           photos: (m.photos || []).map((p: any) => {
+            if (p.url && !p.previewUrl) p.previewUrl = p.url;
             if (p.base64 && !p.previewUrl) return { ...p, previewUrl: p.base64.startsWith('data:') ? p.base64 : `data:image/jpeg;base64,${p.base64}` };
             return p;
           })
@@ -161,6 +168,7 @@ export const useChecklistFlow = (data: ChecklistData, setData: React.Dispatch<Re
         problematicNetworkPoints: (raw.problematicNetworkPoints || []).map((np: any) => ({
           ...np,
           photos: (np.photos || []).map((p: any) => {
+            if (p.url && !p.previewUrl) p.previewUrl = p.url;
             if (p.base64 && !p.previewUrl) return { ...p, previewUrl: p.base64.startsWith('data:') ? p.base64 : `data:image/jpeg;base64,${p.base64}` };
             return p;
           })

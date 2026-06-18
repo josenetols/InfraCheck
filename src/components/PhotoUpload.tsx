@@ -9,6 +9,14 @@ import React, { useRef } from 'react';
 import { Camera, X } from 'lucide-react';
 import { Photo } from '../types';
 
+/** Gerador de ID compatível com HTTP (crypto.randomUUID falha sem HTTPS) */
+const generateId = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    try { return crypto.randomUUID(); } catch {}
+  }
+  return 'photo-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 11);
+};
+
 interface PhotoUploadProps {
   photos: Photo[];
   onPhotosChange: (photos: Photo[]) => void;
@@ -23,7 +31,7 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({ photos, onPhotosChange
     
     const newFiles = Array.from(e.target.files);
     const newPhotos: Photo[] = newFiles.map(file => ({
-      id: crypto.randomUUID(),
+      id: generateId(),
       filename: file.name,
       mimeType: file.type,
       size: file.size,
@@ -70,7 +78,13 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({ photos, onPhotosChange
         
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            if (fileInputRef.current) {
+              fileInputRef.current.click();
+            } else {
+              alert('Seu browser não suporta upload. Tente Chrome ou Safari atualizado.');
+            }
+          }}
           className="aspect-square rounded-lg border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 transition-colors flex flex-col items-center justify-center text-slate-500 hover:text-blue-600 gap-2 shadow-sm"
         >
           <Camera size={26} strokeWidth={1.5} />
@@ -81,8 +95,7 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({ photos, onPhotosChange
       <input 
         type="file" 
         multiple 
-        accept="image/*" 
-        capture="environment"
+        accept="image/*"
         className="hidden" 
         ref={fileInputRef}
         onChange={handleFileChange}

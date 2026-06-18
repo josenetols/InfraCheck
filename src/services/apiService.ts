@@ -70,17 +70,37 @@ const restorePhotos = (photos: any[]): Photo[] => {
   });
 };
 
+import { supabase } from '../lib/supabaseClient';
+
 const prepareForBackend = async (data: ChecklistData): Promise<any> => {
   const cloned = JSON.parse(JSON.stringify(data));
+
   const processPhotos = async (sourcePhotos: Photo[]) => {
     const processed = [];
     for (const p of sourcePhotos) {
-        if (p.blob) {
-            const base64 = await blobToBase64(p.blob);
-            processed.push({ ...p, blob: undefined, base64 }); 
-        } else {
-            processed.push(p);
+      if (p.blob) {
+        // Upload para o Supabase Storage
+        const fileExt = p.filename.split('.').pop() || 'jpg';
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error } = await supabase.storage
+          .from('infracheck-photos')
+          .upload(filePath, p.blob);
+
+        if (error) {
+          console.error('Erro no upload da foto:', error);
+          throw new Error('Falha ao fazer o upload da imagem para o Supabase.');
         }
+
+        const { data: publicData } = supabase.storage
+          .from('infracheck-photos')
+          .getPublicUrl(filePath);
+
+        processed.push({ ...p, blob: undefined, url: publicData.publicUrl, previewUrl: publicData.publicUrl });
+      } else {
+        processed.push(p);
+      }
     }
     return processed;
   };

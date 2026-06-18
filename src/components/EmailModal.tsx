@@ -5,23 +5,26 @@ import { X, Send, Mail } from 'lucide-react';
 interface EmailModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSend: (recipientEmail: string, subject: string, message: string) => Promise<void>;
+  onSend: (recipientEmail: string, subject: string, message: string, data: any) => Promise<void>;
   defaultSubject: string;
+  defaultMessage?: string;
+  data: any; // Raw checklist data
 }
 
-export const EmailModal: React.FC<EmailModalProps> = ({ isOpen, onClose, onSend, defaultSubject }) => {
+export const EmailModal: React.FC<EmailModalProps> = ({ isOpen, onClose, onSend, defaultSubject, defaultMessage, data }) => {
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState(defaultSubject);
-  const [message, setMessage] = useState('Segue em anexo o relatório técnico.');
+  const [message, setMessage] = useState(defaultMessage || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setSubject(defaultSubject);
+      setMessage(defaultMessage || '');
       setError(null);
     }
-  }, [isOpen, defaultSubject]);
+  }, [isOpen, defaultSubject, defaultMessage]);
 
   if (!isOpen) return null;
 
@@ -36,7 +39,7 @@ export const EmailModal: React.FC<EmailModalProps> = ({ isOpen, onClose, onSend,
     setError(null);
 
     try {
-      await onSend(email, subject, message);
+      await onSend(email, subject, message, data);
       onClose();
     } catch (err) {
       setError('Falha ao enviar e-mail. Tente novamente.');

@@ -50,6 +50,8 @@ export interface UserData {
   username: string;
   region: string;
   role: UserRole;
+  email?: string;
+  smtp_password?: string;
 }
 
 export interface ImageMeta {

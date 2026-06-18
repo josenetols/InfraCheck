@@ -1,12 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import {
   UserPlus, Trash2, MapPin, LayoutDashboard, Map, Store, Users,
-  AlertCircle, CalendarClock, Building2, ShieldCheck, PlusCircle, KeyRound
+  AlertCircle, CalendarClock, Building2, ShieldCheck, PlusCircle, KeyRound, Edit
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { StatCard } from '../components/dashboard/StatCard';
 import { useAdminData } from '../hooks/useAdminData';
 import { AdminSummaryResponse, RegionStatResponse, AdminPendingStore } from '../types/api';
+import { UserEditModal } from '../components/UserEditModal';
+import { UserResponse } from '../services/userService';
 
 type TabType = 'dashboard' | 'regions' | 'stores' | 'users';
 
@@ -130,6 +132,8 @@ export const Admin: React.FC = () => {
   const [newUserLogin, setNewUserLogin] = useState('');
   const [newUserRegion, setNewUserRegion] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserRole>('technician');
+  
+  const [editingUser, setEditingUser] = useState<UserResponse | null>(null);
 
   const {
     users, regions, locations, adminSummary,
@@ -466,6 +470,14 @@ export const Admin: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-1">
                         <button
+                          onClick={() => setEditingUser(u)}
+                          className="text-slate-300 hover:text-blue-500 p-2 transition-colors"
+                          aria-label={`Editar usuário ${u.name}`}
+                          title="Editar e Configurar E-mail"
+                        >
+                          <Edit size={20} />
+                        </button>
+                        <button
                           onClick={() => handleResetPassword(u.id, u.name)}
                           className="text-slate-300 hover:text-blue-500 p-2 transition-colors"
                           aria-label={`Redefinir senha de ${u.name}`}
@@ -487,6 +499,13 @@ export const Admin: React.FC = () => {
                 </div>
               </div>
             </div>
+            <UserEditModal
+              isOpen={!!editingUser}
+              onClose={() => setEditingUser(null)}
+              user={editingUser}
+              regions={regions}
+              onSave={updateUser}
+            />
           </div>
         )}
       </div>

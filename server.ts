@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
@@ -11,10 +11,23 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); // Increase limit for PDF base64
+app.use(express.json({ limit: '100mb' })); // Limite maior para imagens base64 e PDFs
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // Mount MVC API routes
 app.use('/api', apiRoutes);
+
+// Handler global de erro para JSON malformado (ex: imagens base64 com chars especiais)
+// DEVE vir DEPOIS das rotas para capturar erros de parse
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  if (err.type === 'entity.parse.failed' || err instanceof SyntaxError) {
+    console.error('[JSON Parse Error]', err.message);
+    res.status(400).json({ error: 'Corpo da requisição inválido. Verifique o formato JSON enviado.' });
+    return;
+  }
+  console.error('[Server Error]', err);
+  res.status(500).json({ error: 'Erro interno do servidor.' });
+});
 
 // Vite middleware for development
 if (process.env.NODE_ENV !== 'production') {
@@ -30,5 +43,10 @@ if (process.env.NODE_ENV !== 'production') {
 
 app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
-  await testConnection();
+  try {
+    await testConnection();
+  } catch (err) {
+    console.error('⚠️  Aviso: Falha ao testar conexão com BD na inicialização:', err);
+    // Não crasha o servidor — a conexão pode estar disponível mais tarde
+  }
 });

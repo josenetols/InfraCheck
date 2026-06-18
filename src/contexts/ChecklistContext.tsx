@@ -1,6 +1,19 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { ChecklistData, initialChecklistState, SwitchDevice, AntennaDevice, ProblematicMachine, ProblematicNetworkPoint, Photo } from '../types';
+
+/**
+ * Gerador de ID único compatível com HTTP (sem HTTPS/contexto seguro).
+ * crypto.randomUUID() falha em HTTP puro — esta função é um fallback seguro.
+ */
+const generateId = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    try { return crypto.randomUUID(); } catch {}
+  }
+  // Fallback: Math.random + timestamp (funciona em qualquer contexto)
+  return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 11);
+};
+
 // Context API - Removed direct constants and db imports if not directly used here, otherwise:
 interface ChecklistContextType {
   data: ChecklistData;
@@ -35,8 +48,8 @@ export const ChecklistProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addSwitch = () => {
-    const newSwitch: SwitchDevice = { id: crypto.randomUUID(), quantity: 1, brand: '', model: '', ports: 24, conditionOk: true, notes: '', status: 'new' };
-    setData(prev => ({ ...prev, switches: [...prev.switches, newSwitch] }));
+    const newSwitch: SwitchDevice = { id: generateId(), quantity: 1, brand: '', model: '', ports: 24, conditionOk: true, notes: '', status: 'new' };
+    setData(prev => ({ ...prev, switches: [newSwitch, ...prev.switches] }));
   };
   const removeSwitch = (id: string) => setData(prev => ({ ...prev, switches: prev.switches.filter(s => s.id !== id) }));
   const updateSwitch = (id: string, field: keyof SwitchDevice, value: any) => setData(prev => ({
@@ -44,8 +57,8 @@ export const ChecklistProvider = ({ children }: { children: ReactNode }) => {
   }));
 
   const addAntenna = () => {
-    const newAntenna: AntennaDevice = { id: crypto.randomUUID(), quantity: 1, brand: '', location: '', isWorking: true, notes: '', status: 'new' };
-    setData(prev => ({ ...prev, antennas: [...prev.antennas, newAntenna] }));
+    const newAntenna: AntennaDevice = { id: generateId(), quantity: 1, brand: '', location: '', isWorking: true, notes: '', status: 'new' };
+    setData(prev => ({ ...prev, antennas: [newAntenna, ...prev.antennas] }));
   };
   const removeAntenna = (id: string) => setData(prev => ({ ...prev, antennas: prev.antennas.filter(a => a.id !== id) }));
   const updateAntenna = (id: string, field: keyof AntennaDevice, value: any) => setData(prev => ({
@@ -53,8 +66,8 @@ export const ChecklistProvider = ({ children }: { children: ReactNode }) => {
   }));
 
   const addMachine = () => {
-    const newMachine: ProblematicMachine = { id: crypto.randomUUID(), identifier: '', processorGen: '', osUpdated: true, problemDescription: '', photos: [], status: 'new' };
-    setData(prev => ({ ...prev, problematicMachines: [...prev.problematicMachines, newMachine] }));
+    const newMachine: ProblematicMachine = { id: generateId(), identifier: '', processorGen: '', osUpdated: true, problemDescription: '', photos: [], status: 'new' };
+    setData(prev => ({ ...prev, problematicMachines: [newMachine, ...prev.problematicMachines] }));
   };
   const removeMachine = (id: string) => setData(prev => ({ ...prev, problematicMachines: prev.problematicMachines.filter(m => m.id !== id) }));
   const updateMachine = (id: string, field: keyof ProblematicMachine, value: any) => setData(prev => ({
@@ -62,8 +75,8 @@ export const ChecklistProvider = ({ children }: { children: ReactNode }) => {
   }));
 
   const addNetworkPoint = () => {
-    const newPoint: ProblematicNetworkPoint = { id: crypto.randomUUID(), location: '', description: '', photos: [], status: 'new' };
-    setData(prev => ({ ...prev, problematicNetworkPoints: [...prev.problematicNetworkPoints, newPoint] }));
+    const newPoint: ProblematicNetworkPoint = { id: generateId(), location: '', description: '', photos: [], status: 'new' };
+    setData(prev => ({ ...prev, problematicNetworkPoints: [newPoint, ...prev.problematicNetworkPoints] }));
   };
   const removeNetworkPoint = (id: string) => setData(prev => ({ ...prev, problematicNetworkPoints: prev.problematicNetworkPoints.filter(p => p.id !== id) }));
   const updateNetworkPoint = (id: string, field: keyof ProblematicNetworkPoint, value: any) => setData(prev => ({

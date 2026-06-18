@@ -8,6 +8,8 @@ export interface UserResponse {
   region_name: string | null;
   role: UserRole;
   active: boolean;
+  email?: string;
+  smtp_password?: string;
 }
 
 export interface CreateUserPayload {
@@ -16,6 +18,8 @@ export interface CreateUserPayload {
   role: UserRole;
   password?: string;
   region_name?: string;
+  email?: string;
+  smtp_password?: string;
 }
 
 export interface UpdateUserPayload {
@@ -23,6 +27,8 @@ export interface UpdateUserPayload {
   username: string;
   role: UserRole;
   region_name?: string;
+  email?: string;
+  smtp_password?: string;
 }
 
 export const userService = {

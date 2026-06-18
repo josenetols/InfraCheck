@@ -1,4 +1,5 @@
 import { pool } from '../../lib/db.js';
+import { randomUUID } from 'crypto';
 import { JwtPayload } from '../middleware/authMiddleware.js';
 
 export const getChecklists = async (location?: string, user?: JwtPayload) => {
@@ -26,7 +27,7 @@ export const getChecklistById = async (id: string) => {
 };
 
 export const upsertChecklist = async (data: any) => {
-  const id = data.id || crypto.randomUUID();
+  const id = data.id || randomUUID();
   const upsertQuery = `
     INSERT INTO checklists (id, location_name, technician_name, visit_date, data, is_baseline)
     VALUES ($1, $2, $3, $4, $5, $6)

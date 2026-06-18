@@ -13,7 +13,7 @@ export const getUsers = async (_req: Request, res: Response) => {
 
 export const createUser = async (req: Request, res: Response) => {
   try {
-    const { name, username, password, role, region_name } = req.body;
+    const { name, username, password, role, region_name, email, smtp_password } = req.body;
 
     // Apenas name e username são obrigatórios.
     // Password é opcional — usuário define no primeiro login.
@@ -40,6 +40,8 @@ export const createUser = async (req: Request, res: Response) => {
       password: password || undefined,          // null → sem senha (primeiro acesso)
       role: role || 'technician',               // default: técnico operacional
       region_name,
+      email,
+      smtp_password,
     });
 
     res.status(201).json({ message: 'Usuário cadastrado com sucesso!', id });
@@ -52,7 +54,7 @@ export const createUser = async (req: Request, res: Response) => {
 export const updateUser = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { name, username, role, region_name } = req.body;
+    const { name, username, role, region_name, email, smtp_password } = req.body;
 
     if (!name || !username || !role) {
       res.status(400).json({ error: 'Nome, username e role são obrigatórios para edição.' });
@@ -71,7 +73,7 @@ export const updateUser = async (req: Request, res: Response) => {
       return;
     }
 
-    await userModel.updateUser(id, { name, username, role, region_name });
+    await userModel.updateUser(id, { name, username, role, region_name, email, smtp_password });
     res.json({ message: 'Usuário atualizado com sucesso!' });
   } catch (err) {
     console.error('Erro ao atualizar usuário:', err);

@@ -57,19 +57,19 @@ export const MachinesSection = () => {
     <section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
       <SectionTitle icon={Monitor} title="3. Máquinas e Usuários" />
       <div className="grid grid-cols-2 gap-4 mb-4">
-          <button onClick={() => updateField('allMachinesOk', true)} className={`p-4 rounded-xl border flex flex-col items-center gap-2 ${data.allMachinesOk ? 'border-green-500 bg-green-50 text-green-700' : 'bg-white'}`}><CheckCircle2 size={24} /><span className="text-sm font-bold">Máquinas OK</span></button>
-          <button onClick={() => updateField('allMachinesOk', false)} className={`p-4 rounded-xl border flex flex-col items-center gap-2 ${!data.allMachinesOk ? 'border-red-500 bg-red-50 text-red-700' : 'bg-white'}`}><AlertCircle size={24} /><span className="text-sm font-bold">Problemas</span></button>
+          <button type="button" onClick={() => updateField('allMachinesOk', true)} className={`p-4 rounded-xl border flex flex-col items-center gap-2 ${data.allMachinesOk ? 'border-green-500 bg-green-50 text-green-700' : 'bg-white'}`}><CheckCircle2 size={24} /><span className="text-sm font-bold">Máquinas OK</span></button>
+          <button type="button" onClick={() => updateField('allMachinesOk', false)} className={`p-4 rounded-xl border flex flex-col items-center gap-2 ${!data.allMachinesOk ? 'border-red-500 bg-red-50 text-red-700' : 'bg-white'}`}><AlertCircle size={24} /><span className="text-sm font-bold">Problemas</span></button>
       </div>
       <div className="mt-6">
         {!data.allMachinesOk && (
             <div className="space-y-4">
                 <div className="flex justify-between items-center">
                     <h3 className="font-bold text-slate-700">Máquinas com Problemas</h3>
-                    <button onClick={addMachine} className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-full hover:bg-red-200 flex items-center gap-1 font-medium"><Plus size={14} /> Adicionar Máquina</button>
+                    <button type="button" onClick={addMachine} className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-full hover:bg-red-200 flex items-center gap-1 font-medium"><Plus size={14} /> Adicionar Máquina</button>
                 </div>
                 {data.problematicMachines.map((pm, index) => (
                     <div key={pm.id} className="bg-red-50 p-4 rounded-lg border border-red-200 relative">
-                        <button onClick={() => removeMachine(pm.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 p-1"><Trash2 size={16} /></button>
+                        <button type="button" onClick={() => removeMachine(pm.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 p-1"><Trash2 size={16} /></button>
                         <div className="grid md:grid-cols-2 gap-4 mb-3">
                             <div><InputLabel>Identificação (Tag/Nome)</InputLabel><StyledInput value={pm.identifier} onChange={e => updateMachine(pm.id, 'identifier', e.target.value)} placeholder="PC-01 / Recepção" /></div>
                             <div><InputLabel>Processador</InputLabel><StyledInput value={pm.processorGen} onChange={e => updateMachine(pm.id, 'processorGen', e.target.value)} placeholder="i5 8ª Geração" /></div>

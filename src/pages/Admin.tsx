@@ -139,7 +139,7 @@ export const Admin: React.FC = () => {
     users, regions, locations, adminSummary,
     addRegion, removeRegion,
     addStore, removeStore,
-    addUser, removeUser, updatePassword
+    addUser, removeUser, updatePassword, updateUser
   } = useAdminData();
 
   // Inicializa selects quando regiões carregam

@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import {
   UserPlus, Trash2, MapPin, LayoutDashboard, Map, Store, Users,
-  AlertCircle, CalendarClock, Building2, ShieldCheck, PlusCircle, KeyRound, Edit
+  AlertCircle, CalendarClock, Building2, ShieldCheck, PlusCircle, KeyRound, Edit, Bell
 } from 'lucide-react';
+import { CollectionManager } from './CollectionManager';
 import { UserRole } from '../types';
 import { StatCard } from '../components/dashboard/StatCard';
 import { useAdminData } from '../hooks/useAdminData';
@@ -10,7 +11,7 @@ import { AdminSummaryResponse, RegionStatResponse, AdminPendingStore } from '../
 import { UserEditModal } from '../components/UserEditModal';
 import { UserResponse } from '../services/userService';
 
-type TabType = 'dashboard' | 'regions' | 'stores' | 'users';
+type TabType = 'dashboard' | 'regions' | 'stores' | 'users' | 'collection';
 
 // ─── Toast simples (substitui alert/confirm quando não há modal disponível) ────
 // TODO: substituir por um componente <Modal /> quando o backend for integrado.
@@ -138,9 +139,21 @@ export const Admin: React.FC = () => {
   const {
     users, regions, locations, adminSummary,
     addRegion, removeRegion,
-    addStore, removeStore,
+    addStore, removeStore, linkStoreContact,
     addUser, removeUser, updatePassword, updateUser
   } = useAdminData();
+
+  // Estado para lista de contatos do CSV (para dropdown de vínculo)
+  const [storeContacts, setStoreContacts] = React.useState<{ store_name: string; uf: string }[]>([]);
+  const [linkingStore, setLinkingStore] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const token = localStorage.getItem('infracheck_auth_token');
+    fetch('/api/collection/stores', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setStoreContacts(data))
+      .catch(() => {});
+  }, []);
 
   // Inicializa selects quando regiões carregam
   React.useEffect(() => {
@@ -172,6 +185,14 @@ export const Admin: React.FC = () => {
 
   const handleRemoveStore = (name: string) => {
     if (confirmAction(`Remover loja "${name}"?`)) removeStore(name);
+  };
+
+  const handleLinkStore = async (locationName: string, storeContactName: string) => {
+    setLinkingStore(locationName);
+    const val = storeContactName === '__none__' ? null : storeContactName;
+    const result = await linkStoreContact(locationName, val);
+    if (!result.ok) notifyError(result.error || 'Erro ao vincular.');
+    setLinkingStore(null);
   };
 
   const handleAddUser = async () => {
@@ -208,10 +229,11 @@ export const Admin: React.FC = () => {
   // ── Tabs ─────────────────────────────────────────────────────────────────────
 
   const tabs: { key: TabType; label: string; icon: React.ElementType; count?: number }[] = [
-    { key: 'dashboard', label: 'Resumo Executivo', icon: LayoutDashboard },
-    { key: 'regions',   label: 'Regiões Ativas',  icon: Map             },
-    { key: 'stores',    label: 'Lojas',            icon: Store,           count: locations.length },
-    { key: 'users',     label: 'Gestão de Pessoas',icon: Users,           count: users.length },
+    { key: 'dashboard',  label: 'Resumo Executivo',  icon: LayoutDashboard },
+    { key: 'regions',    label: 'Regiões Ativas',    icon: Map             },
+    { key: 'stores',     label: 'Lojas',             icon: Store,           count: locations.length },
+    { key: 'users',      label: 'Gestão de Pessoas', icon: Users,           count: users.length },
+    { key: 'collection', label: 'Régua de Cobrança', icon: Bell            },
   ];
 
   return (
@@ -353,26 +375,53 @@ export const Admin: React.FC = () => {
                   {locations.map(loc => (
                     <div
                       key={loc.name}
-                      className="p-4 bg-white border border-slate-100 rounded-xl shadow-sm flex justify-between items-center hover:border-blue-200 transition-all hover:shadow-md"
+                      className="p-4 bg-white border border-slate-100 rounded-xl shadow-sm hover:border-blue-200 transition-all hover:shadow-md"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-                          <Store className="w-5 h-5 text-blue-600" />
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Store className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="font-extrabold text-slate-800 text-sm leading-tight">{loc.name}</p>
+                            <span className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">{loc.region}</span>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-extrabold text-slate-800 text-sm leading-tight">{loc.name}</p>
-                          <span className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">
-                            {loc.region}
-                          </span>
-                        </div>
+                        <button
+                          onClick={() => handleRemoveStore(loc.name)}
+                          className="text-slate-300 hover:text-red-500 p-1.5 transition-colors"
+                          aria-label={`Remover loja ${loc.name}`}
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleRemoveStore(loc.name)}
-                        className="text-slate-300 hover:text-red-500 p-2 transition-colors"
-                        aria-label={`Remover loja ${loc.name}`}
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      {/* Vínculo com CSV */}
+                      <div className="border-t border-slate-100 pt-3">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Vínculo CSV</span>
+                          {loc.store_contact_name ? (
+                            <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">🔗 Vinculada</span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">⚠️ Sem vínculo</span>
+                          )}
+                        </div>
+                        <select
+                          className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-700 disabled:opacity-60"
+                          value={loc.store_contact_name || '__none__'}
+                          disabled={linkingStore === loc.name || storeContacts.length === 0}
+                          onChange={e => handleLinkStore(loc.name, e.target.value)}
+                        >
+                          <option value="__none__">— Nenhum vínculo —</option>
+                          {storeContacts.map(sc => (
+                            <option key={sc.store_name} value={sc.store_name}>
+                              [{sc.uf}] {sc.store_name}
+                            </option>
+                          ))}
+                        </select>
+                        {storeContacts.length === 0 && (
+                          <p className="text-[10px] text-slate-400 mt-1">Importe o CSV na aba Régua de Cobrança primeiro.</p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -508,6 +557,14 @@ export const Admin: React.FC = () => {
             />
           </div>
         )}
+
+        {/* ── Régua de Cobrança ─────────────────────────────────────────────── */}
+        {activeTab === 'collection' && (
+          <div className="animate-in slide-in-from-bottom-4 duration-300">
+            <CollectionManager />
+          </div>
+        )}
+
       </div>
     </div>
   );

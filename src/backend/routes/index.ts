@@ -7,6 +7,7 @@ import statsRoutes from './statsRoutes.js';
 import emailRoutes from './emailRoutes.js';
 import authRoutes from './authRoutes.js';
 import assignmentRoutes from './assignmentRoutes.js';
+import collectionRoutes from './collectionRoutes.js';
 import { pool } from '../../lib/db.js';
 
 const router = Router();
@@ -36,5 +37,6 @@ router.use('/stats', statsRoutes);
 router.use('/email', emailRoutes);
 router.use('/auth', authRoutes);
 router.use('/assignments', assignmentRoutes);
+router.use('/collection', collectionRoutes);
 
 export default router;

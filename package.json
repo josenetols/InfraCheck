@@ -20,6 +20,7 @@
     "@types/pg": "^8.20.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
+    "csv-parse": "^7.0.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
@@ -28,6 +29,7 @@
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.344.0",
+    "multer": "^2.2.0",
     "nodemailer": "^8.0.1",
     "pg": "^8.20.0",
     "react": "^18.2.0",
@@ -35,6 +37,7 @@
     "recharts": "^3.8.1"
   },
   "devDependencies": {
+    "@types/multer": "^2.2.0",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^4.2.1",

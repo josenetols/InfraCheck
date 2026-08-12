@@ -24,6 +24,7 @@ export type ChecklistHistory = Record<string, ChecklistEntry[]>;
 export interface LocationInfo {
   name: string;
   region: string;
+  store_contact_name?: string | null; // Vínculo com a linha do CSV (store_contacts.store_name)
   lastCheckDate?: string | null;
   lastCheckTechnician?: string | null;
   lastCheckId?: string | null;

@@ -82,6 +82,22 @@ export const useAdminData = () => {
     }
   }, [loadData]);
 
+  const linkStoreContact = useCallback(async (locationName: string, storeContactName: string | null): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const token = localStorage.getItem('infracheck_auth_token');
+      const res = await fetch(`/api/locations/${encodeURIComponent(locationName)}/link`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ store_contact_name: storeContactName }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Erro ao vincular'); }
+      await loadData();
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, error: err.message || 'Erro ao vincular contato.' };
+    }
+  }, [loadData]);
+
   // ── CRUD de Usuários ────────────────────────────────────────────────────────
   const addUser = useCallback(async (payload: CreateUserPayload): Promise<{ ok: boolean; error?: string }> => {
     try {
@@ -124,7 +140,7 @@ export const useAdminData = () => {
   return {
     users, regions, locations, adminSummary,
     addRegion, removeRegion,
-    addStore, removeStore,
+    addStore, removeStore, linkStoreContact,
     addUser, updateUser, updatePassword, removeUser,
   };
 };

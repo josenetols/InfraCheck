@@ -42,15 +42,84 @@ export const ReportPreview = ({ onEdit, onDashboard, checklistId }: { onEdit: ()
       .catch(() => alert('Não foi possível copiar. Selecione o texto manualmente.'));
   };
 
-  const handleSendEmail = async (recipientEmail: string, subject: string, message: string, data: any) => {
+  /** Converte um File/Blob para base64 string (sem o prefixo data:...) */
+  const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1] ?? '');
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+  /** Converte array de fotos: substitui blob/previewUrl por base64 ou passa URL do Supabase */
+  const serializePhotos = async (photos: any[]): Promise<any[]> => {
+    if (!photos?.length) return [];
+    return Promise.all(photos.map(async (p) => {
+      try {
+        // 1. Se ainda tem blob em memória (foto recém-tirada, não salva ainda)
+        if (p.blob instanceof Blob) {
+          const base64 = await blobToBase64(p.blob);
+          return {
+            id: p.id,
+            filename: p.filename,
+            mimeType: p.mimeType || 'image/jpeg',
+            base64,
+          };
+        }
+        // 2. Se já tem base64 salvo
+        if (p.base64) {
+          return {
+            id: p.id,
+            filename: p.filename,
+            mimeType: p.mimeType || 'image/jpeg',
+            base64: p.base64,
+          };
+        }
+        // 3. Foto já foi enviada ao Supabase Storage — passa a URL pública
+        // O backend vai baixar e embutir no e-mail via CID
+        const url = p.url || (p.previewUrl && !p.previewUrl.startsWith('blob:') ? p.previewUrl : null);
+        return {
+          id: p.id,
+          filename: p.filename || 'foto.jpg',
+          mimeType: p.mimeType || 'image/jpeg',
+          url,
+        };
+      } catch {
+        return { id: p.id, filename: p.filename, mimeType: p.mimeType };
+      }
+    }));
+  };
+
+  const handleSendEmail = async (recipientEmail: string, subject: string, message: string, rawData: any) => {
     try {
+      // Serializa fotos para base64 antes de enviar (blob URLs não funcionam em emails)
+      const emailData = {
+        ...rawData,
+        cpdPhotos: await serializePhotos(rawData.cpdPhotos || []),
+        problematicMachines: rawData.problematicMachines
+          ? await Promise.all(rawData.problematicMachines.map(async (m: any) => ({
+              ...m,
+              photos: await serializePhotos(m.photos || []),
+            })))
+          : [],
+        problematicNetworkPoints: rawData.problematicNetworkPoints
+          ? await Promise.all(rawData.problematicNetworkPoints.map(async (np: any) => ({
+              ...np,
+              photos: await serializePhotos(np.photos || []),
+            })))
+          : [],
+      };
+
       const response = await fetch('/api/email/send-report', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('infracheck_auth_token')}`
         },
-        body: JSON.stringify({ recipientEmail, subject, message, data }),
+        body: JSON.stringify({ recipientEmail, subject, message, data: emailData }),
       });
 
       if (!response.ok) {

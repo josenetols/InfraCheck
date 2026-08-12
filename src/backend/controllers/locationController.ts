@@ -30,3 +30,15 @@ export const removeLocation = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Erro ao remover loja' });
   }
 };
+
+/** PATCH /api/locations/:name/link — vincula loja ao contato do CSV */
+export const linkStoreContact = async (req: Request, res: Response) => {
+  try {
+    const { name } = req.params as { name: string };
+    const { store_contact_name } = req.body as { store_contact_name: string | null };
+    await locationModel.linkStoreContact(name, store_contact_name ?? null);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao vincular contato da loja' });
+  }
+};

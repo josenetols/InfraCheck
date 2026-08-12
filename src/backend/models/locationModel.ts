@@ -31,7 +31,8 @@ export const getLocations = async (user?: JwtPayload) => {
         FROM checklists
         ORDER BY location_name, visit_date DESC
       )
-      SELECT l.name, l.region_name as region, lc.id as last_check_id, lc.visit_date as last_check_date, lc.technician_name as last_check_technician
+      SELECT l.name, l.region_name as region, l.store_contact_name,
+             lc.id as last_check_id, lc.visit_date as last_check_date, lc.technician_name as last_check_technician
       FROM locations l
       LEFT JOIN latest_checks lc ON l.name = lc.location_name
       ORDER BY l.name
@@ -44,6 +45,14 @@ export const upsertLocation = async (name: string, region: string) => {
   await pool.query(
     'INSERT INTO locations (name, region_name) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET region_name = EXCLUDED.region_name',
     [name, region]
+  );
+};
+
+/** Vincula uma loja do sistema ao nome exato da loja no CSV (store_contacts) */
+export const linkStoreContact = async (locationName: string, storeContactName: string | null) => {
+  await pool.query(
+    'UPDATE locations SET store_contact_name = $1 WHERE name = $2',
+    [storeContactName, locationName]
   );
 };
 

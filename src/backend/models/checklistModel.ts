@@ -1,4 +1,11 @@
 import { pool } from '../../lib/db.js';
+
+// ─── Tipos de pendência extraídos do JSONB ────────────────────────────────────
+
+export interface PendingItem {
+  category: string;
+  description: string;
+}
 import { randomUUID } from 'crypto';
 import { JwtPayload } from '../middleware/authMiddleware.js';
 
@@ -101,4 +108,88 @@ export const getLatestChecklistByLocation = async (locationName: string) => {
     [locationName]
   );
   return result.rows.length > 0 ? result.rows[0] : null;
+};
+
+/**
+ * Extrai os itens pendentes/reprovados do JSONB de um checklist.
+ * Lê todos os campos de problema conhecidos e retorna descrições legíveis.
+ */
+export const extractPendingItems = (checklistData: any): { category: string; description: string }[] => {
+  const items: { category: string; description: string }[] = [];
+  if (!checklistData) return items;
+
+  // Máquinas com problema
+  if (Array.isArray(checklistData.problematicMachines)) {
+    for (const m of checklistData.problematicMachines) {
+      const desc = [
+        m.identifier   ? `ID: ${m.identifier}`               : null,
+        m.processorGen ? `Processador: ${m.processorGen}`     : null,
+        m.problemDescription                                   || null,
+      ].filter(Boolean).join(' | ');
+      if (desc) items.push({ category: 'Máquina com Problema', description: desc });
+    }
+  }
+
+  // Pontos de rede com problema
+  if (Array.isArray(checklistData.problematicNetworkPoints)) {
+    for (const p of checklistData.problematicNetworkPoints) {
+      const desc = [
+        p.location    ? `Ponto: ${p.location}` : null,
+        p.description                           || null,
+      ].filter(Boolean).join(' | ');
+      if (desc) items.push({ category: 'Ponto de Rede com Problema', description: desc });
+    }
+  }
+
+  // Switches com condição ruim
+  if (Array.isArray(checklistData.switches)) {
+    for (const s of checklistData.switches) {
+      if (s.conditionOk === false) {
+        const desc = [
+          s.brand ? `Marca: ${s.brand}` : null,
+          s.model ? `Modelo: ${s.model}` : null,
+          s.notes                        || null,
+        ].filter(Boolean).join(' | ');
+        items.push({ category: 'Switch com Condição Ruim', description: desc || 'Switch sem detalhes' });
+      }
+    }
+  }
+
+  // Antenas não funcionando
+  if (Array.isArray(checklistData.antennas)) {
+    for (const a of checklistData.antennas) {
+      if (a.isWorking === false) {
+        const desc = [
+          a.brand    ? `Marca: ${a.brand}`   : null,
+          a.location ? `Local: ${a.location}` : null,
+          a.notes                             || null,
+        ].filter(Boolean).join(' | ');
+        items.push({ category: 'Antena com Falha', description: desc || 'Antena sem detalhes' });
+      }
+    }
+  }
+
+  // Cabeamento com problema
+  if (checklistData.cableCondition && checklistData.cableCondition !== 'Organizado') {
+    const note = checklistData.cableNotes ? ` — ${checklistData.cableNotes}` : '';
+    items.push({ category: 'Cabeamento', description: `Condição: ${checklistData.cableCondition}${note}` });
+  }
+
+  // Firewall com problema
+  if (checklistData.hasFirewall && checklistData.firewallWorking === false) {
+    const note = checklistData.firewallNotes ? ` — ${checklistData.firewallNotes}` : '';
+    items.push({ category: 'Firewall', description: `Firewall com problema${note}` });
+  }
+
+  // Reclamações dos funcionários
+  if (checklistData.employeesSatisfied === false && checklistData.complaints) {
+    items.push({ category: 'Reclamações de Funcionários', description: checklistData.complaints });
+  }
+
+  // Observações gerais
+  if (checklistData.observations && checklistData.observations.trim().length > 0) {
+    items.push({ category: 'Observações Gerais', description: checklistData.observations.trim() });
+  }
+
+  return items;
 };

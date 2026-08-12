@@ -36,8 +36,9 @@ export interface UpdateUserData {
   username: string;
   region_name?: string;
   role: 'admin' | 'technician';
-  email?: string;
-  smtp_password?: string;
+  // undefined = nao alterar; string vazia = limpar; valor = salvar
+  email?: string | null;
+  smtp_password?: string | null;
 }
 
 // ─── Queries ──────────────────────────────────────────────────────────
@@ -75,17 +76,27 @@ export const createUser = async (data: CreateUserData): Promise<string> => {
 };
 
 export const updateUser = async (id: string, data: UpdateUserData): Promise<void> => {
+  // COALESCE preserva o valor existente quando email/smtp nao sao fornecidos (undefined).
+  // NULLIF('', ...) permite limpar o campo enviando string vazia.
   await pool.query(
     `UPDATE technicians SET 
        name = $1, 
        username = $2, 
        region_name = $3, 
        role = $4, 
-       email = $5,
-       smtp_password = $6,
+       email = CASE WHEN $5::text IS NULL THEN email ELSE NULLIF($5::text, '') END,
+       smtp_password = CASE WHEN $6::text IS NULL THEN smtp_password ELSE NULLIF($6::text, '') END,
        updated_at = NOW() 
      WHERE id = $7`,
-    [data.name, data.username, data.region_name || null, data.role, data.email || null, data.smtp_password || null, id]
+    [
+      data.name,
+      data.username,
+      data.region_name || null,
+      data.role,
+      data.email !== undefined ? (data.email || '') : null,
+      data.smtp_password !== undefined ? (data.smtp_password || '') : null,
+      id
+    ]
   );
 };
 

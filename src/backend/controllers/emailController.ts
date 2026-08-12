@@ -61,9 +61,36 @@ export const sendReportEmail = async (req: Request, res: Response) => {
   const data = req.body.data;
   let advancedHtml = '';
 
+  // Array de anexos inline (CID) — preenchido pelo renderPhotos
+  const attachments: { filename: string; content: Buffer; cid: string; contentType: string }[] = [];
+  let cidCounter = 0;
+
+  /** Renderiza fotos como CID attachments (padrão correto para imagens inline em emails) */
+  const renderPhotos = (photos: any[]): string => {
+    if (!photos || photos.length === 0) return '';
+    const imagesHtml = photos.map((p: any) => {
+      if (!p.base64 && !p.url) return '';
+      cidCounter++;
+      const cid = `photo-${cidCounter}@infracheck`;
+      // Adiciona o attachment de forma síncrona — o buffer será preenchido depois via fetchPhotoBuffer
+      attachments.push({
+        filename: p.filename || `foto-${cidCounter}.jpg`,
+        content: Buffer.alloc(0), // placeholder substituído em fetchPhotoBuffers
+        cid,
+        contentType: p.mimeType || 'image/jpeg',
+        _base64: p.base64 ?? null,
+        _url: p.url ?? null,
+      } as any);
+      return `<img src="cid:${cid}" style="max-width: 300px; max-height: 220px; border-radius: 4px; border: 1px solid #ccc; margin: 5px;" alt="Foto da visita" />`;
+    }).filter(Boolean).join('');
+    return imagesHtml ? `<div style="margin-top: 10px;">${imagesHtml}</div>` : '';
+  };
+
+
   if (data) {
     const formatDate = (iso: string) => new Date(iso).toLocaleDateString('pt-BR');
     const boolText = (b: boolean) => b ? 'Sim' : 'Não';
+
 
     advancedHtml += `
       <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; max-width: 700px; margin: 0 auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
@@ -86,17 +113,6 @@ export const sendReportEmail = async (req: Request, res: Response) => {
           ${(message || '').replace(/\n/g, '<br/>')}
         </div>
     `;
-
-    // Função auxiliar para renderizar fotos
-    const renderPhotos = (photos: any[]) => {
-      if (!photos || photos.length === 0) return '';
-      const imagesHtml = photos.map(p => {
-        const src = p.url || p.previewUrl || (p.base64 ? `data:image/jpeg;base64,${p.base64}` : null);
-        if (!src) return '';
-        return `<img src="${src}" style="max-width: 200px; max-height: 150px; border-radius: 4px; border: 1px solid #ccc; margin: 5px;" alt="Foto do problema" />`;
-      }).join('');
-      return imagesHtml ? `<div style="margin-top: 10px;">${imagesHtml}</div>` : '';
-    };
 
     // Detalhamento de Problemas
     let hasProblems = false;
@@ -175,12 +191,44 @@ export const sendReportEmail = async (req: Request, res: Response) => {
 
 
   try {
+    // Preenche os buffers dos attachments que ainda são placeholders
+    // (fotos que estão no Supabase Storage e precisam ser baixadas)
+    await Promise.all(attachments.map(async (att: any) => {
+      if (att._base64) {
+        // Tem base64 diretamente — só converte
+        att.content = Buffer.from(att._base64, 'base64');
+      } else if (att._url) {
+        // Foto salva no Supabase Storage — faz o download
+        try {
+          const imgRes = await fetch(att._url);
+          if (imgRes.ok) {
+            const arrayBuf = await imgRes.arrayBuffer();
+            att.content = Buffer.from(arrayBuf);
+            // Detecta o content-type da resposta se disponível
+            const ct = imgRes.headers.get('content-type');
+            if (ct) att.contentType = ct;
+          } else {
+            console.warn(`Falha ao baixar foto: ${att._url} — status ${imgRes.status}`);
+          }
+        } catch (fetchErr) {
+          console.warn(`Erro ao baixar foto ${att._url}:`, fetchErr);
+        }
+      }
+      // Limpa as propriedades internas antes de enviar
+      delete att._base64;
+      delete att._url;
+    }));
+
+    // Remove attachments que ficaram sem conteúdo (falha no download)
+    const validAttachments = attachments.filter((a: any) => a.content && a.content.length > 0);
+
     const info = await transporter.sendMail({
       from: `"${senderName}" <${smtpUser}>`,
       to: recipientEmail,
       subject: subject || 'Relatório de Visita Técnica - InfraCheck BR',
       text: message || '',
       html: advancedHtml,
+      attachments: validAttachments.length > 0 ? validAttachments : undefined,
     });
 
     console.log('E-mail enviado:', info.messageId);

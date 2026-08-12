@@ -39,6 +39,7 @@ export interface TechnicianResponse {
 export interface LocationResponse {
   name: string;
   region: string;
+  store_contact_name?: string | null;
   last_check_date?: string | null;
   last_check_technician?: string | null;
 }

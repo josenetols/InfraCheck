@@ -230,6 +230,7 @@ export const apiService = {
     return data.map(d => ({ 
       name: d.name, 
       region: d.region,
+      store_contact_name: d.store_contact_name,
       lastCheckDate: d.last_check_date,
       lastCheckTechnician: d.last_check_technician
     }));

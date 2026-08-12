@@ -182,7 +182,7 @@ function buildEmailBody(level, storeName, month, pendingItems = []) {
 
 // ─── Lógica de escalamento ────────────────────────────────────────────────────
 
-const ESCALATION_DAYS = { 0: 30, 1: 60, 2: 90, 3: 120 };
+const ESCALATION_DAYS = { 0: 0, 1: 30, 2: 60, 3: 90 };
 
 async function run() {
   const now = new Date();

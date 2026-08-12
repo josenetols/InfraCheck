@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import * as checklistModel from '../models/checklistModel.js';
+import { exec } from 'child_process';
+import path from 'path';
 
 export const getAllChecklists = async (req: Request, res: Response) => {
   try {
@@ -28,7 +30,20 @@ export const getChecklistById = async (req: Request, res: Response) => {
 
 export const createOrUpdateChecklist = async (req: Request, res: Response) => {
   try {
-    const id = await checklistModel.upsertChecklist(req.body);
+    const data = req.body;
+    const id = await checklistModel.upsertChecklist(data);
+    
+    // Dispara a régua de cobrança em background imediatamente se estiver concluído
+    if (data.status === 'concluded') {
+      const jobPath = path.resolve(__dirname, '../../../autoCollectionJob.mjs');
+      // No PM2 o __dirname costuma estar em dist/backend/controllers, então '../../../autoCollectionJob.mjs' cai na raiz, 
+      // ou apenas usamos o comando PM2/Node direto. Melhor usar o caminho absoluto ou node autoCollectionJob.mjs 
+      // se soubermos o CWD. No Ubuntu, o CWD da API costuma ser /home/ubuntu/InfraCheck.
+      exec('node autoCollectionJob.mjs', { cwd: '/home/ubuntu/InfraCheck' }, (err) => {
+         if (err) console.error('Erro ao acionar autoCollectionJob pós-checklist:', err);
+      });
+    }
+
     res.status(201).json({ message: 'Checklist salvo com sucesso!', id });
   } catch (err) {
     console.error('Erro ao salvar checklist:', err);

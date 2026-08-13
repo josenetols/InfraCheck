@@ -139,13 +139,11 @@ export const Admin: React.FC = () => {
   const {
     users, regions, locations, adminSummary,
     addRegion, removeRegion,
-    addStore, removeStore, linkStoreContact,
+    addStore, removeStore,
     addUser, removeUser, updatePassword, updateUser
   } = useAdminData();
 
-      .then(data => setStoreContacts(data))
-      .catch(() => {});
-  }, []);
+
 
   // Inicializa selects quando regiões carregam
   React.useEffect(() => {
@@ -529,3 +527,5 @@ export const Admin: React.FC = () => {
     </div>
   );
 };
+
+export default Admin;

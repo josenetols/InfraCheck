@@ -303,7 +303,12 @@ async function buildEmailBody(level, storeName, month, checklistData) {
 
 // ─── Lógica de escalamento ────────────────────────────────────────────────────
 
-const ESCALATION_DAYS = { 0: 0, 1: 30, 2: 60, 3: 90 };
+// Dias mínimos entre um nível e o próximo
+// Nível 0 → 1: imediatamente (0 dias desde a visita)
+// Nível 1 → 2: 30 dias desde o envio do nível 1
+// Nível 2 → 3: 30 dias desde o envio do nível 2
+// Nível 3 → 4: 30 dias desde o envio do nível 3
+const ESCALATION_DAYS = { 0: 0, 1: 30, 2: 30, 3: 30 };
 
 async function run() {
   const now = new Date();
@@ -368,9 +373,15 @@ async function run() {
     }
 
     const visitDate = new Date(row.visit_date);
-    const daysSince = Math.floor((now.getTime() - visitDate.getTime()) / (1000 * 60 * 60 * 24));
     const currentLevel = row.current_level || 0;
     const requiredDays = ESCALATION_DAYS[currentLevel];
+
+    // Nível 0 → 1: conta dias desde a visita
+    // Nível 1+ → N: conta dias desde o último e-mail enviado
+    const referenceDate = (currentLevel > 0 && row.last_sent_at)
+      ? new Date(row.last_sent_at)
+      : visitDate;
+    const daysSince = Math.floor((now.getTime() - referenceDate.getTime()) / (1000 * 60 * 60 * 24));
 
     if (requiredDays === undefined || daysSince < requiredDays) {
       skipped++;

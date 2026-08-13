@@ -3,18 +3,18 @@
  * Job automático de escalonamento da Régua de Cobrança.
  *
  * Lógica de escalonamento por dias desde o checklist:
- *   Nível 0 → 1 : após 30 dias sem ação
- *   Nível 1 → 2 : após 60 dias (30 dias após nível 1)
- *   Nível 2 → 3 : após 90 dias (30 dias após nível 2)
- *   Nível 3 → 4 : após 120 dias (30 dias após nível 3)
+ *   Nível 0 → 1 : imediatamente ao salvar (dia 0)
+ *   Nível 1 → 2 : após 30 dias
+ *   Nível 2 → 3 : após 60 dias
+ *   Nível 3 → 4 : após 90 dias
  *
  * Registrado no PM2 com cron: 0 7 * * * (todo dia às 07:00)
+ * Também acionado via checklistController ao salvar um checklist.
  */
 
 import pg from './node_modules/pg/lib/index.js';
 import nodemailer from './node_modules/nodemailer/lib/nodemailer.js';
 import fs from 'fs';
-import https from 'https';
 
 const { Pool } = pg;
 
@@ -55,7 +55,7 @@ const SMTP_CONFIG = {
 
 const SMTP_FROM = env['SMTP_FROM'] || env['SMTP_USER'] || '';
 
-// ─── Extração de pendências do JSONB ──────────────────────────────────────────
+// ─── Extração de pendências ────────────────────────────────────────────────────
 
 function extractPendingItems(data) {
   const items = [];
@@ -117,7 +117,20 @@ function extractPendingItems(data) {
   return items;
 }
 
-// ─── Template de e-mail ────────────────────────────────────────────────────────
+// ─── Download de foto para Buffer ─────────────────────────────────────────────
+
+async function fetchPhotoAsBuffer(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    return Buffer.from(buf);
+  } catch {
+    return null;
+  }
+}
+
+// ─── Template de e-mail detalhado ─────────────────────────────────────────────
 
 const LEVEL_SUBJECTS = {
   1: 'Checklist de Infraestrutura Pendente — Ação Necessária',
@@ -126,8 +139,12 @@ const LEVEL_SUBJECTS = {
   4: '🚨 Escalonamento Máximo — Checklist de TI pendente sem solução',
 };
 
-function buildEmailBody(level, storeName, month, pendingItems = []) {
+async function buildEmailBody(level, storeName, month, checklistData) {
   const monthLabel = new Date(month + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const visitDate  = checklistData?.visitDate
+    ? new Date(checklistData.visitDate).toLocaleDateString('pt-BR')
+    : 'N/A';
+  const techName   = checklistData?.technicianName || 'N/A';
 
   const levelMessages = {
     1: `Prezado(a),<br><br>Informamos que o <strong>Checklist Mensal de Infraestrutura de TI</strong> referente ao mês de <strong>${monthLabel}</strong> da unidade <strong>${storeName}</strong> ainda possui pendências não resolvidas.<br><br>Solicitamos que seja providenciada a regularização dos itens abaixo.`,
@@ -139,45 +156,149 @@ function buildEmailBody(level, storeName, month, pendingItems = []) {
   const borderColor = level >= 4 ? '#e53935' : level >= 3 ? '#f57c00' : '#1565c0';
   const bgColor     = level >= 4 ? '#fff3e0' : level >= 3 ? '#fff8e1' : '#f9f9f9';
 
-  const pendingSection = pendingItems.length > 0
-    ? `<div style="margin-top:20px;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;">
-        <div style="background:#fff3e0;padding:10px 16px;border-bottom:1px solid #e0e0e0;">
-          <strong style="color:#e65100;font-size:13px;">⚠️ Itens Pendentes (${pendingItems.length})</strong>
-        </div>
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead><tr style="background:#f5f5f5;">
-            <th style="padding:8px 12px;text-align:left;color:#555;width:35%;">Categoria</th>
-            <th style="padding:8px 12px;text-align:left;color:#555;">Descrição</th>
-          </tr></thead>
-          <tbody>${pendingItems.map((item, idx) =>
-            `<tr style="background:${idx % 2 === 0 ? '#fff' : '#fafafa'};border-top:1px solid #eee;">
-              <td style="padding:8px 12px;color:#c62828;font-weight:bold;">${item.category}</td>
-              <td style="padding:8px 12px;color:#333;">${item.description}</td>
-            </tr>`
-          ).join('')}</tbody>
-        </table>
-      </div>`
-    : '';
+  // Coleção de attachments inline (CID)
+  const attachments = [];
+  let cidCounter = 0;
 
-  return `<div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
-    <div style="background:#003366;padding:20px;text-align:center;">
-      <h2 style="color:#fff;margin:0;font-size:18px;">Régua de Cobrança — Checklist de TI (Automático)</h2>
-      <p style="color:#aac4e0;margin:6px 0 0;font-size:12px;">SAGA Grupo — Equipe de Infraestrutura</p>
+  async function renderPhotos(photos) {
+    if (!photos || photos.length === 0) return '';
+    const imgs = [];
+    for (const p of photos) {
+      if (!p.url && !p.base64) continue;
+      cidCounter++;
+      const cid = `photo-${cidCounter}@infracheck`;
+      let buf = null;
+      if (p.base64) {
+        buf = Buffer.from(p.base64, 'base64');
+      } else if (p.url) {
+        buf = await fetchPhotoAsBuffer(p.url);
+      }
+      if (!buf) continue;
+      attachments.push({
+        filename: p.filename || `foto-${cidCounter}.jpg`,
+        content: buf,
+        cid,
+        contentType: p.mimeType || 'image/jpeg',
+      });
+      imgs.push(`<img src="cid:${cid}" style="max-width:300px;max-height:220px;border-radius:4px;border:1px solid #ccc;margin:5px;" alt="Foto" />`);
+    }
+    return imgs.length ? `<div style="margin-top:10px;">${imgs.join('')}</div>` : '';
+  }
+
+  // ── Detalhamento de anomalias ──
+  let anomaliasHtml = '';
+  let hasAnomalia = false;
+
+  if (checklistData) {
+    const boolText = b => b ? 'Sim' : 'Não';
+
+    // Máquinas problemáticas
+    if (!checklistData.allMachinesOk && Array.isArray(checklistData.problematicMachines) && checklistData.problematicMachines.length > 0) {
+      hasAnomalia = true;
+      anomaliasHtml += `<h4 style="color:#003366;margin-bottom:10px;">🖥️ Estações de Trabalho</h4>`;
+      for (const pm of checklistData.problematicMachines) {
+        const photosHtml = await renderPhotos(pm.photos || []);
+        anomaliasHtml += `
+          <div style="background:#fff8f8;border-left:4px solid #d32f2f;padding:10px 15px;margin-bottom:15px;border-radius:0 4px 4px 0;">
+            <p style="margin:0 0 5px 0;"><strong>ID da Máquina:</strong> ${pm.identifier || 'N/A'}</p>
+            <p style="margin:0 0 5px 0;"><strong>Processador:</strong> ${pm.processorGen || 'N/A'} | <strong>Windows 11:</strong> ${boolText(pm.osUpdated)}</p>
+            <p style="margin:0 0 10px 0;color:#b71c1c;"><strong>Problema Relatado:</strong> ${pm.problemDescription || ''}</p>
+            ${photosHtml}
+          </div>`;
+      }
+    }
+
+    // Pontos de rede
+    if (!checklistData.networkPointsOk && Array.isArray(checklistData.problematicNetworkPoints) && checklistData.problematicNetworkPoints.length > 0) {
+      hasAnomalia = true;
+      anomaliasHtml += `<h4 style="color:#003366;margin-bottom:10px;margin-top:20px;">🔌 Pontos de Rede Física</h4>`;
+      for (const np of checklistData.problematicNetworkPoints) {
+        const photosHtml = await renderPhotos(np.photos || []);
+        anomaliasHtml += `
+          <div style="background:#fff8f8;border-left:4px solid #d32f2f;padding:10px 15px;margin-bottom:15px;border-radius:0 4px 4px 0;">
+            <p style="margin:0 0 5px 0;"><strong>Local do Ponto:</strong> ${np.location || ''}</p>
+            <p style="margin:0 0 10px 0;color:#b71c1c;"><strong>Descrição:</strong> ${np.description || ''}</p>
+            ${photosHtml}
+          </div>`;
+      }
+    }
+
+    // Switches com problema
+    const badSwitches = (checklistData.switches || []).filter(s => s.conditionOk === false);
+    if (badSwitches.length > 0) {
+      hasAnomalia = true;
+      anomaliasHtml += `<h4 style="color:#003366;margin-bottom:10px;margin-top:20px;">🔀 Switches com Problema</h4>`;
+      for (const s of badSwitches) {
+        anomaliasHtml += `
+          <div style="background:#fff8f8;border-left:4px solid #d32f2f;padding:10px 15px;margin-bottom:15px;border-radius:0 4px 4px 0;">
+            <p style="margin:0 0 5px 0;"><strong>Marca:</strong> ${s.brand || 'N/A'} | <strong>Modelo:</strong> ${s.model || 'N/A'} | <strong>Portas:</strong> ${s.ports || 'N/A'}</p>
+            ${s.notes ? `<p style="margin:0;color:#b71c1c;"><strong>Observações:</strong> ${s.notes}</p>` : ''}
+          </div>`;
+      }
+    }
+
+    // Antenas com falha
+    const badAntennas = (checklistData.antennas || []).filter(a => a.isWorking === false);
+    if (badAntennas.length > 0) {
+      hasAnomalia = true;
+      anomaliasHtml += `<h4 style="color:#003366;margin-bottom:10px;margin-top:20px;">📡 Antenas com Falha</h4>`;
+      for (const a of badAntennas) {
+        anomaliasHtml += `
+          <div style="background:#fff8f8;border-left:4px solid #d32f2f;padding:10px 15px;margin-bottom:15px;border-radius:0 4px 4px 0;">
+            <p style="margin:0 0 5px 0;"><strong>Marca/Modelo:</strong> ${a.brand || 'N/A'} | <strong>Local:</strong> ${a.location || 'N/A'}</p>
+            ${a.notes ? `<p style="margin:0;color:#b71c1c;"><strong>Observações:</strong> ${a.notes}</p>` : ''}
+          </div>`;
+      }
+    }
+
+    // Fotos do CPD
+    const cpdPhotosHtml = await renderPhotos(checklistData.cpdPhotos || []);
+    if (cpdPhotosHtml) {
+      anomaliasHtml += `
+        <h4 style="color:#003366;margin-bottom:10px;margin-top:20px;">📸 Fotos do CPD / Rack</h4>
+        ${cpdPhotosHtml}`;
+    }
+  }
+
+  const html = `
+<div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
+
+  <!-- Header -->
+  <div style="background:#003366;padding:20px;text-align:center;">
+    <h2 style="color:#fff;margin:0;font-size:20px;">Régua de Cobrança — Checklist de TI (Automático)</h2>
+    <p style="color:#aac4e0;margin:6px 0 0;font-size:12px;">SAGA Grupo — Equipe de Infraestrutura</p>
+  </div>
+
+  <!-- Meta Info -->
+  <div style="background:#f4f7fa;padding:15px 20px;border-bottom:1px solid #ddd;">
+    <p style="margin:0 0 5px 0;"><strong>Local:</strong> ${storeName}</p>
+    <p style="margin:0 0 5px 0;"><strong>Data da Visita:</strong> ${visitDate}</p>
+    <p style="margin:0;"><strong>Técnico:</strong> ${techName}</p>
+  </div>
+
+  <!-- Nível / Mensagem -->
+  <div style="padding:24px;background:#fff;">
+    <div style="background:${bgColor};border-left:4px solid ${borderColor};padding:12px 16px;border-radius:0 4px 4px 0;margin-bottom:20px;">
+      <strong>Nível ${level} de 4</strong> — ${LEVEL_SUBJECTS[level]}
+      <span style="float:right;font-size:11px;color:#999;">Disparo automático</span>
     </div>
-    <div style="padding:24px;background:#fff;">
-      <div style="background:${bgColor};border-left:4px solid ${borderColor};padding:12px 16px;border-radius:0 4px 4px 0;margin-bottom:20px;">
-        <strong>Nível ${level} de 4</strong> — ${LEVEL_SUBJECTS[level]}
-        <span style="float:right;font-size:11px;color:#999;">Disparo automático</span>
-      </div>
-      <p>${levelMessages[level] || ''}</p>
-      ${pendingSection}
-      <br>
-      <p style="color:#555;font-size:13px;">Gerado pelo sistema <strong>InfraCheck BR</strong> — Disparo automático</p>
-    </div>
-    <div style="background:#f9f9f9;padding:12px;text-align:center;border-top:1px solid #eee;">
-      <p style="font-size:11px;color:#999;margin:0;">Este e-mail foi gerado automaticamente. Não responda diretamente.</p>
-    </div>
-  </div>`;
+    <p>${levelMessages[level] || ''}</p>
+  </div>
+
+  ${hasAnomalia ? `
+  <!-- Detalhamento de Anomalias -->
+  <div style="padding:20px;background:#fff;border-top:1px solid #eee;">
+    <h3 style="color:#d32f2f;border-bottom:2px solid #ffcdd2;padding-bottom:5px;margin-top:0;">Detalhamento de Anomalias</h3>
+    ${anomaliasHtml}
+  </div>` : ''}
+
+  <!-- Footer -->
+  <div style="background:#f9f9f9;padding:12px;text-align:center;border-top:1px solid #eee;">
+    <p style="font-size:11px;color:#999;margin:0;">Este e-mail foi gerado automaticamente. Não responda diretamente.</p>
+  </div>
+</div>`;
+
+  return { html, attachments };
 }
 
 // ─── Lógica de escalamento ────────────────────────────────────────────────────
@@ -250,7 +371,7 @@ async function run() {
     const currentLevel = row.current_level || 0;
     const requiredDays = ESCALATION_DAYS[currentLevel];
 
-    if (!requiredDays || daysSince < requiredDays) {
+    if (requiredDays === undefined || daysSince < requiredDays) {
       skipped++;
       continue;
     }
@@ -313,12 +434,16 @@ async function run() {
     }
 
     try {
+      // Gera HTML detalhado com fotos inline
+      const { html, attachments } = await buildEmailBody(nextLevel, row.location_name, row.month, row.data);
+
       await transporter.sendMail({
-        from:    SMTP_FROM,
-        to:      to.join(', '),
-        cc:      cc.join(', ') || undefined,
-        subject: LEVEL_SUBJECTS[nextLevel],
-        html:    buildEmailBody(nextLevel, row.location_name, row.month, pendingItems),
+        from:        SMTP_FROM,
+        to:          to.join(', '),
+        cc:          cc.join(', ') || undefined,
+        subject:     LEVEL_SUBJECTS[nextLevel],
+        html,
+        attachments: attachments.length > 0 ? attachments : undefined,
       });
 
       // Salva no banco

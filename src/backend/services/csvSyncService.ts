@@ -118,31 +118,32 @@ export const parseCSV = (fileBuffer: Buffer): StoreContactRow[] => {
 };
 
 /**
- * Sincroniza os contatos parseados do CSV com a tabela store_contacts.
- * Usa UPSERT por store_name.
+ * Sincroniza os contatos parseados do CSV com a tabela locations.
+ * Usa UPSERT por name (nome da loja).
  */
 export const syncStoreContacts = async (fileBuffer: Buffer): Promise<{ synced: number; total: number }> => {
   const contacts = parseCSV(fileBuffer);
 
   let synced = 0;
   for (const c of contacts) {
+    // Insere ou atualiza a tabela locations
+    // O region_name pode ser null inicialmente se for uma loja nova
     await pool.query(
-      `INSERT INTO store_contacts
-         (uf, store_name, director_name, director_email,
+      `INSERT INTO locations
+         (name, uf, director_name, director_email,
           manager_sales_name, manager_sales_email,
-          manager_aftersales_name, manager_aftersales_email, synced_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
-       ON CONFLICT (store_name) DO UPDATE SET
+          manager_aftersales_name, manager_aftersales_email)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT (name) DO UPDATE SET
          uf = EXCLUDED.uf,
          director_name = EXCLUDED.director_name,
          director_email = EXCLUDED.director_email,
          manager_sales_name = EXCLUDED.manager_sales_name,
          manager_sales_email = EXCLUDED.manager_sales_email,
          manager_aftersales_name = EXCLUDED.manager_aftersales_name,
-         manager_aftersales_email = EXCLUDED.manager_aftersales_email,
-         synced_at = NOW()`,
+         manager_aftersales_email = EXCLUDED.manager_aftersales_email`,
       [
-        c.uf, c.store_name,
+        c.store_name, c.uf,
         c.director_name, c.director_email,
         c.manager_sales_name, c.manager_sales_email,
         c.manager_aftersales_name, c.manager_aftersales_email,
@@ -156,33 +157,32 @@ export const syncStoreContacts = async (fileBuffer: Buffer): Promise<{ synced: n
 
 /**
  * Busca os contatos de uma loja específica.
- * Prioridade: usa o vínculo store_contact_name da tabela locations (se configurado).
- * Fallback: busca por comparação de texto simples (comportamento legado).
  */
 export const getStoreContacts = async (storeName: string): Promise<StoreContactRow | null> => {
-  // Tenta primeiro via vínculo explícito (locations.store_contact_name)
-  const linked = await pool.query(
-    `SELECT sc.*
-     FROM store_contacts sc
-     INNER JOIN locations l ON LOWER(l.store_contact_name) = LOWER(sc.store_name)
-     WHERE LOWER(l.name) = LOWER($1)
-     LIMIT 1`,
-    [storeName]
-  );
-  if (linked.rows.length > 0) return linked.rows[0];
-
-  // Fallback: busca direta por texto (compatibilidade com lojas ainda não vinculadas)
   const result = await pool.query(
-    `SELECT * FROM store_contacts WHERE LOWER(store_name) = LOWER($1) LIMIT 1`,
+    `SELECT 
+      name as store_name, uf, director_name, director_email,
+      manager_sales_name, manager_sales_email,
+      manager_aftersales_name, manager_aftersales_email
+     FROM locations 
+     WHERE LOWER(name) = LOWER($1) LIMIT 1`,
     [storeName]
   );
   return result.rows.length > 0 ? result.rows[0] : null;
 };
 
 /**
- * Lista todas as lojas sincronizadas.
+ * Lista todas as lojas com seus contatos.
  */
 export const listStoreContacts = async (): Promise<StoreContactRow[]> => {
-  const result = await pool.query('SELECT * FROM store_contacts ORDER BY uf, store_name');
+  const result = await pool.query(`
+    SELECT 
+      name as store_name, uf, director_name, director_email,
+      manager_sales_name, manager_sales_email,
+      manager_aftersales_name, manager_aftersales_email
+    FROM locations 
+    ORDER BY uf, name
+  `);
   return result.rows;
 };
+

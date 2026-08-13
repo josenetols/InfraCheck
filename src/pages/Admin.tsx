@@ -143,14 +143,6 @@ export const Admin: React.FC = () => {
     addUser, removeUser, updatePassword, updateUser
   } = useAdminData();
 
-  // Estado para lista de contatos do CSV (para dropdown de vínculo)
-  const [storeContacts, setStoreContacts] = React.useState<{ store_name: string; uf: string }[]>([]);
-  const [linkingStore, setLinkingStore] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    const token = localStorage.getItem('infracheck_auth_token');
-    fetch('/api/collection/stores', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.ok ? r.json() : [])
       .then(data => setStoreContacts(data))
       .catch(() => {});
   }, []);
@@ -187,13 +179,7 @@ export const Admin: React.FC = () => {
     if (confirmAction(`Remover loja "${name}"?`)) removeStore(name);
   };
 
-  const handleLinkStore = async (locationName: string, storeContactName: string) => {
-    setLinkingStore(locationName);
-    const val = storeContactName === '__none__' ? null : storeContactName;
-    const result = await linkStoreContact(locationName, val);
-    if (!result.ok) notifyError(result.error || 'Erro ao vincular.');
-    setLinkingStore(null);
-  };
+
 
   const handleAddUser = async () => {
     const result = await addUser({
@@ -395,33 +381,7 @@ export const Admin: React.FC = () => {
                           <Trash2 size={15} />
                         </button>
                       </div>
-                      {/* Vínculo com CSV */}
-                      <div className="border-t border-slate-100 pt-3">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Vínculo CSV</span>
-                          {loc.store_contact_name ? (
-                            <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">🔗 Vinculada</span>
-                          ) : (
-                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">⚠️ Sem vínculo</span>
-                          )}
-                        </div>
-                        <select
-                          className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-700 disabled:opacity-60"
-                          value={loc.store_contact_name || '__none__'}
-                          disabled={linkingStore === loc.name || storeContacts.length === 0}
-                          onChange={e => handleLinkStore(loc.name, e.target.value)}
-                        >
-                          <option value="__none__">— Nenhum vínculo —</option>
-                          {storeContacts.map(sc => (
-                            <option key={sc.store_name} value={sc.store_name}>
-                              [{sc.uf}] {sc.store_name}
-                            </option>
-                          ))}
-                        </select>
-                        {storeContacts.length === 0 && (
-                          <p className="text-[10px] text-slate-400 mt-1">Importe o CSV na aba Régua de Cobrança primeiro.</p>
-                        )}
-                      </div>
+
                     </div>
                   ))}
                 </div>

@@ -396,12 +396,9 @@ async function run() {
 
     // Busca contatos da loja
     const contactResult = await pool.query(`
-      SELECT sc.*
-      FROM store_contacts sc
-      INNER JOIN locations l ON LOWER(l.store_contact_name) = LOWER(sc.store_name)
-      WHERE LOWER(l.name) = LOWER($1)
-      UNION
-      SELECT * FROM store_contacts WHERE LOWER(store_name) = LOWER($1)
+      SELECT *
+      FROM locations
+      WHERE LOWER(name) = LOWER($1)
       LIMIT 1
     `, [row.location_name]);
 

@@ -126,16 +126,24 @@ export const syncStoreContacts = async (fileBuffer: Buffer): Promise<{ synced: n
 
   let synced = 0;
   for (const c of contacts) {
+    // Primeiro garante que a Região (Estado) existe
+    if (c.uf) {
+      await pool.query(
+        'INSERT INTO regions (name) VALUES ($1) ON CONFLICT (name) DO NOTHING',
+        [c.uf]
+      );
+    }
+
     // Insere ou atualiza a tabela locations
-    // O region_name pode ser null inicialmente se for uma loja nova
     await pool.query(
       `INSERT INTO locations
-         (name, uf, director_name, director_email,
+         (name, uf, region_name, director_name, director_email,
           manager_sales_name, manager_sales_email,
           manager_aftersales_name, manager_aftersales_email)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        ON CONFLICT (name) DO UPDATE SET
          uf = EXCLUDED.uf,
+         region_name = COALESCE(EXCLUDED.region_name, locations.region_name),
          director_name = EXCLUDED.director_name,
          director_email = EXCLUDED.director_email,
          manager_sales_name = EXCLUDED.manager_sales_name,
@@ -143,7 +151,7 @@ export const syncStoreContacts = async (fileBuffer: Buffer): Promise<{ synced: n
          manager_aftersales_name = EXCLUDED.manager_aftersales_name,
          manager_aftersales_email = EXCLUDED.manager_aftersales_email`,
       [
-        c.store_name, c.uf,
+        c.store_name, c.uf, c.uf || null,
         c.director_name, c.director_email,
         c.manager_sales_name, c.manager_sales_email,
         c.manager_aftersales_name, c.manager_aftersales_email,

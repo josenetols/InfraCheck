@@ -320,7 +320,8 @@ async function run() {
       TO_CHAR(c.visit_date, 'YYYY-MM') AS month,
       cs.current_level,
       cs.last_sent_at,
-      cs.resolved_at
+      cs.resolved_at,
+      cs.thread_message_id
     FROM checklists c
     LEFT JOIN collection_state cs
       ON LOWER(cs.store_name) = LOWER(c.location_name)
@@ -437,27 +438,45 @@ async function run() {
       // Gera HTML detalhado com fotos inline
       const { html, attachments } = await buildEmailBody(nextLevel, row.location_name, row.month, row.data);
 
-      await transporter.sendMail({
+      // Monta subject: resposta ao thread existente ou novo
+      const isReply = nextLevel > 1 && row.thread_message_id;
+      const subject = isReply
+        ? `Re: ${LEVEL_SUBJECTS[1]}` // mantém o assunto original para agrupar no thread
+        : LEVEL_SUBJECTS[nextLevel];
+
+      // Headers de threading para agrupar no mesmo fio no Outlook/Gmail
+      const extraHeaders = isReply
+        ? { 'In-Reply-To': row.thread_message_id, 'References': row.thread_message_id }
+        : {};
+
+      const info = await transporter.sendMail({
         from:        SMTP_FROM,
         to:          to.join(', '),
         cc:          cc.join(', ') || undefined,
-        subject:     LEVEL_SUBJECTS[nextLevel],
+        subject,
         html,
         attachments: attachments.length > 0 ? attachments : undefined,
+        headers:     extraHeaders,
       });
+
+      // Captura o Message-ID gerado para usar como thread nos próximos níveis
+      const sentMessageId = info.messageId || null;
+      // Usa o messageId do nível 1 como âncora do thread
+      const threadMessageId = (nextLevel === 1 ? sentMessageId : row.thread_message_id) || sentMessageId;
 
       // Salva no banco
       await pool.query(`
-        INSERT INTO collection_state (store_name, month, current_level, last_sent_at, last_sent_by, auto_fired)
-        VALUES ($1, $2, $3, NOW(), 'Sistema Automático', true)
+        INSERT INTO collection_state (store_name, month, current_level, last_sent_at, last_sent_by, auto_fired, thread_message_id)
+        VALUES ($1, $2, $3, NOW(), 'Sistema Automático', true, $4)
         ON CONFLICT (store_name, month) DO UPDATE SET
-          current_level = EXCLUDED.current_level,
-          last_sent_at  = NOW(),
-          last_sent_by  = 'Sistema Automático',
-          auto_fired    = true
-      `, [row.location_name, row.month, nextLevel]);
+          current_level     = EXCLUDED.current_level,
+          last_sent_at      = NOW(),
+          last_sent_by      = 'Sistema Automático',
+          auto_fired        = true,
+          thread_message_id = COALESCE(collection_state.thread_message_id, EXCLUDED.thread_message_id)
+      `, [row.location_name, row.month, nextLevel, threadMessageId]);
 
-      console.log(`[${timestamp}] [auto-collection] ✅ "${row.location_name}" → Nível ${nextLevel} (${daysSince} dias desde checklist)`);
+      console.log(`[${timestamp}] [auto-collection] ✅ "${row.location_name}" → Nível ${nextLevel} (${daysSince} dias desde checklist)${isReply ? ' [thread]' : ''}`);
       fired++;
     } catch (err) {
       console.error(`[${timestamp}] [auto-collection] ❌ Erro ao disparar para "${row.location_name}":`, err.message);

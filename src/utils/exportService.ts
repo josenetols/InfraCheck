@@ -993,10 +993,7 @@ export const downloadProductivityPDF = async (reportData: any[]) => {
     doc.text('SAGA', margin, 18);
   }
 
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(180, 200, 230);
-  doc.text('SAGA - TI FIELD', margin + 30, 14);
+
 
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');

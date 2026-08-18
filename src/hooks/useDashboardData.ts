@@ -61,7 +61,7 @@ export const useDashboardData = () => {
         assignments
       ] = await Promise.all([
         apiService.getAllChecklists(),
-        apiService.getStats(startDate, endDate),
+        apiService.getStats(startDate, endDate, regionFilter !== 'all' ? regionFilter : (user?.region || undefined)),
         apiService.getStatusDistribution(),
         apiService.getLocations(),
         usersFetch,
@@ -142,7 +142,7 @@ export const useDashboardData = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [user, isAdmin, startDate, endDate]);
+  }, [user, isAdmin, startDate, endDate, regionFilter]);
 
   useEffect(() => {
     loadData();

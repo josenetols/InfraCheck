@@ -1,16 +1,16 @@
 import { Request, Response } from 'express';
 import * as statsModel from '../models/statsModel.js';
 
-/** GET /api/stats?startDate=...&endDate=... */
+/** GET /api/stats?startDate=...&endDate=...&region=... */
 export const getStats = async (req: Request, res: Response) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, region } = req.query;
     const summary = await statsModel.getStatsSummary(startDate as string, endDate as string, req.user);
     const daily = await statsModel.getDailyStats(startDate as string, endDate as string, req.user);
     
-    // Calcula o relatório de técnicos
+    // Calcula o relatório de técnicos com filtro de região
     const currentMonth = new Date().toISOString().slice(0, 7);
-    const technicianReport = await statsModel.getTechnicianReport(currentMonth);
+    const technicianReport = await statsModel.getTechnicianReport(currentMonth, region as string | undefined);
 
     res.json({ summary, daily, technicianReport });
   } catch (err) {

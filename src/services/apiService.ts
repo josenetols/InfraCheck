@@ -163,10 +163,11 @@ export const apiService = {
 
 
   // ─── BI / DASHBOARD ───
-  async getStats(startDate: Date, endDate: Date): Promise<StatsResponse> {
+  async getStats(startDate: Date, endDate: Date, region?: string): Promise<StatsResponse> {
     const s = startDate.toISOString().split('T')[0];
     const e = endDate.toISOString().split('T')[0];
-    const res = await fetchAPI(`/stats?startDate=${s}&endDate=${e}`);
+    const regionParam = region && region !== 'all' ? `&region=${encodeURIComponent(region)}` : '';
+    const res = await fetchAPI(`/stats?startDate=${s}&endDate=${e}${regionParam}`);
     if (!res.ok) throw new Error('Falha ao obter estatísticas');
     return res.json();
   },

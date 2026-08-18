@@ -160,21 +160,32 @@ export const getStatusDistribution = async (user?: JwtPayload) => {
 
 // ─── Relatório de Técnicos ───────────────────────────────────────────
 
-export const getTechnicianReport = async (monthKey: string) => {
+export const getTechnicianReport = async (monthKey: string, region?: string) => {
+  const params: any[] = [monthKey];
+  let regionFilter = '';
+  if (region) {
+    params.push(region);
+    regionFilter = `AND l.region_name = $${params.length}`;
+  }
+
   const result = await pool.query(`
     WITH check_month AS (SELECT COUNT(*)::int as cnt FROM assignments WHERE month_key = $1),
     target_month AS (SELECT CASE WHEN (SELECT cnt FROM check_month) > 0 THEN $1 ELSE (SELECT MAX(month_key) FROM assignments) END as mk),
     assignments_count AS (
-      SELECT technician_name, COUNT(*)::int AS total_assigned
-      FROM assignments
-      WHERE month_key = (SELECT mk FROM target_month)
-      GROUP BY technician_name
+      SELECT a.technician_name, COUNT(*)::int AS total_assigned
+      FROM assignments a
+      INNER JOIN locations l ON l.name = a.location_name
+      WHERE a.month_key = (SELECT mk FROM target_month)
+      ${regionFilter}
+      GROUP BY a.technician_name
     ),
     checklists_count AS (
       SELECT c.technician_name, COUNT(DISTINCT c.location_name)::int AS total_completed
       FROM checklists c
       INNER JOIN assignments a ON a.location_name = c.location_name AND a.month_key = (SELECT mk FROM target_month) AND a.technician_name = c.technician_name
+      INNER JOIN locations l ON l.name = c.location_name
       WHERE to_char(c.visit_date, 'YYYY-MM') = $1
+      ${regionFilter}
       GROUP BY c.technician_name
     )
     SELECT
@@ -184,7 +195,7 @@ export const getTechnicianReport = async (monthKey: string) => {
     FROM assignments_count a
     LEFT JOIN checklists_count c ON a.technician_name = c.technician_name
     ORDER BY a.technician_name
-  `, [monthKey]);
+  `, params);
 
   return result.rows;
 };

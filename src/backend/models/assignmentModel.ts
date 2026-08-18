@@ -60,8 +60,14 @@ export const regenerateAssignments = async (monthKey: string, region?: string, p
     return {};
   }
 
-  // Embaralhar e distribuir
-  const shuffled = [...locations.rows].sort(() => Math.random() - 0.5);
+  // Embaralhar com Fisher-Yates (garante distribuição uniforme)
+  // Nota: Math.random() - 0.5 é matematicamente inválido como comparador de sort()
+  // e causa viés sistemático na distribuição.
+  const shuffled = [...locations.rows];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
   const assignments: Record<string, string> = {};
 
   for (let i = 0; i < shuffled.length; i++) {

@@ -963,7 +963,7 @@ export const downloadPDF = async (data: ChecklistData, checklistId?: string) => 
 
 // ─── PDF de Produtividade ─────────────────────────────────────────────────────
 
-export const downloadProductivityPDF = (reportData: any[]) => {
+export const downloadProductivityPDF = async (reportData: any[]) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
@@ -971,11 +971,26 @@ export const downloadProductivityPDF = (reportData: any[]) => {
   // Cabeçalho com logo
   doc.setFillColor(0, 41, 82);
   doc.rect(0, 0, pageWidth, 32, 'F');
-  
+
+  // Carrega logo da CDN e converte para base64 para embutir no PDF
   try {
-    doc.addImage(SAGA_LOGO_BASE64, 'PNG', margin, 5, 28, 14);
+    const logoUrl = 'https://cdn.dealerspace.ai/saga/saga-institucional/novo-template/logos/new-saga-header.png';
+    const response = await fetch(logoUrl);
+    const blob = await response.blob();
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    // Ajusta altura proporcional ao logo (aspect ratio ~4:1)
+    doc.addImage(base64, 'PNG', margin, 6, 40, 20);
   } catch {
-    // fallback
+    // fallback: texto caso a CDN esteja inacessível
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text('SAGA', margin, 18);
   }
 
   doc.setFontSize(9);

@@ -253,7 +253,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartChecklist, onLoadRe
                 </select>
               )}
               <button
-                onClick={() => downloadProductivityPDF(technicianReport)}
+                onClick={async () => await downloadProductivityPDF(technicianReport)}
                 className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-bold transition-colors print:hidden"
                 title="Baixar PDF"
               >

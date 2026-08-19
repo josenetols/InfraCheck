@@ -11,6 +11,7 @@ import { ChecklistHistoryModal } from '../components/dashboard/ChecklistHistoryM
 import { useDashboardData } from '../hooks/useDashboardData';
 import { useAuth } from '../contexts/AuthContext';
 import { downloadProductivityPDF } from '../utils/exportService';
+import { CycleGoalCard } from '../components/dashboard/CycleGoalCard';
 import type { LocationStatus, StatusFilter } from '../types';
 
 interface DashboardProps {
@@ -229,6 +230,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onStartChecklist, onLoadRe
         <StatCard label="Lojas Pendentes"     value={biStats.pending}           icon={AlertCircle}    color="red"   />
         <StatCard label="Média Diária"        value={biStats.averagePerPeriod}  icon={TrendingUp}     color="blue"  />
       </div>
+
+      <CycleGoalCard />
 
       {/* Gráficos de BI */}
       <DashboardCharts barData={barData} pieData={pieData} lineData={lineData} />

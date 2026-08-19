@@ -11,8 +11,8 @@ const SectionTitle = ({ icon: Icon, title }: { icon: React.ElementType, title: s
   </div>
 );
 
-const InputLabel = ({ children }: { children?: React.ReactNode }) => (
-  <label className="block text-sm font-medium text-slate-700 mb-1">{children}</label>
+const InputLabel = ({ children, htmlFor }: { children?: React.ReactNode, htmlFor?: string }) => (
+  <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-700 mb-1">{children}</label>
 );
 
 const StyledInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
@@ -26,10 +26,10 @@ export const LocalInfoSection = () => {
     <section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
       <SectionTitle icon={FileText} title="1. Informações do Local" />
       <div className="grid md:grid-cols-2 gap-4">
-        <Autocomplete label="Nome do Local" value={data.locationName} onChange={val => updateField('locationName', val)} placeholder="Busque ou digite o nome do local..." />
+        <Autocomplete id="locationName" label="Nome do Local" value={data.locationName} onChange={val => updateField('locationName', val)} placeholder="Busque ou digite o nome do local..." />
         <div>
-            <InputLabel>Responsável pelo Local</InputLabel>
-            <StyledInput placeholder="Ex: Cliente (João Silva)" value={data.responsibleName} onChange={e => updateField('responsibleName', e.target.value)} />
+            <InputLabel htmlFor="responsibleName">Responsável pelo Local</InputLabel>
+            <StyledInput id="responsibleName" placeholder="Ex: Cliente (João Silva)" value={data.responsibleName} onChange={e => updateField('responsibleName', e.target.value)} />
         </div>
       </div>
     </section>

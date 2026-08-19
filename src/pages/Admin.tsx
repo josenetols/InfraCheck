@@ -145,11 +145,57 @@ export const Admin: React.FC = () => {
 
 
 
+  const [distributionAlert, setDistributionAlert] = useState<{message: string; details: string} | null>(null);
+
   // Inicializa selects quando regiões carregam
   React.useEffect(() => {
     if (regions.length > 0 && !newStoreRegion) setNewStoreRegion(regions[0]);
     if (regions.length > 0 && !newUserRegion) setNewUserRegion(regions[0]);
   }, [regions, newStoreRegion, newUserRegion]);
+
+  React.useEffect(() => {
+    const fetchDist = async () => {
+      try {
+        const now = new Date();
+        const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const token = localStorage.getItem('infracheck_auth_token');
+        if (!token) return;
+        const res = await fetch(`/api/assignments?month=${monthStr}`, {
+           headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        const counts: Record<string, number> = {};
+        Object.values(data).forEach((t: any) => {
+          counts[t] = (counts[t] || 0) + 1;
+        });
+        const values = Object.values(counts);
+        if (values.length > 1) {
+          const max = Math.max(...values);
+          const min = Math.min(...values);
+          const total = values.reduce((a, b) => a + b, 0);
+          const avg = total / values.length;
+          
+          const maxTech = Object.keys(counts).find(k => counts[k] === max);
+          const minTech = Object.keys(counts).find(k => counts[k] === min);
+          
+          const gapAllowed = Math.floor(total % values.length) + 1;
+          const diff = max - min;
+          
+          if (diff > gapAllowed && diff >= 3) {
+            setDistributionAlert({
+              message: "Distribuição potencialmente desequilibrada.",
+              details: `Média: ${avg.toFixed(1)} | Diferença: ${diff} lojas. Maior: ${maxTech} (${max}), Menor: ${minTech} (${min}).`
+            });
+          } else {
+            setDistributionAlert(null);
+          }
+        }
+      } catch (e) {}
+    };
+    fetchDist();
+  }, [activeTab]);
 
   // Resumo calculado sob demanda (aba dashboard)
   const summary = activeTab === 'dashboard' ? adminSummary : null;
@@ -218,16 +264,26 @@ export const Admin: React.FC = () => {
     { key: 'stores',     label: 'Lojas',             icon: Store,           count: locations.length },
     { key: 'users',      label: 'Gestão de Pessoas', icon: Users,           count: users.length },
     { key: 'collection', label: 'Régua de Cobrança', icon: Bell            },
+    { key: 'cycles',     label: 'Gestão de Ciclos',  icon: CalendarClock   },
   ];
 
   return (
     <div className="pb-20 max-w-7xl mx-auto px-4">
-      {/* Cabeçalho */}
       <div className="mb-8">
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Painel Administrativo</h1>
-        <p className="text-slate-500 font-medium">
+        <p className="text-slate-500 font-medium mb-4">
           Gerenciamento de recursos, usuários e monitoramento de rede global.
         </p>
+
+        {distributionAlert && (
+          <div className="bg-orange-50 border border-orange-200 p-4 rounded-xl flex items-start gap-3 mt-4">
+            <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5" />
+            <div>
+              <h3 className="font-bold text-orange-800">{distributionAlert.message}</h3>
+              <p className="text-orange-700 text-sm mt-1">{distributionAlert.details}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Navegação por abas */}
@@ -520,6 +576,87 @@ export const Admin: React.FC = () => {
         {activeTab === 'collection' && (
           <div className="animate-in slide-in-from-bottom-4 duration-300">
             <CollectionManager />
+          </div>
+        )}
+
+        {/* ── Gestão de Ciclos ─────────────────────────────────────────────── */}
+        {activeTab === 'cycles' && (
+          <div className="animate-in slide-in-from-bottom-4 duration-300">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden p-8">
+              <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                <CalendarClock size={24} className="text-blue-600" /> Gestão de Ciclos (Recálculo e Fechamento)
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                  <h3 className="font-bold text-lg mb-4">Recalcular Mês</h3>
+                  <p className="text-sm text-slate-500 mb-4">Recalcula os objetivos de todos os técnicos para um mês específico.</p>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <input type="number" id="recalc-year" placeholder="Ano" className="flex-1 p-2 border rounded" defaultValue={new Date().getFullYear()} />
+                      <input type="number" id="recalc-month" placeholder="Mês (1-12)" className="flex-1 p-2 border rounded" defaultValue={new Date().getMonth() + 1} />
+                    </div>
+                    <button 
+                      onClick={async () => {
+                        const year = parseInt((document.getElementById('recalc-year') as HTMLInputElement).value);
+                        const month = parseInt((document.getElementById('recalc-month') as HTMLInputElement).value);
+                        if (!year || !month) return alert('Preencha ano e mês');
+                        try {
+                          await fetch('/api/goals/recalculate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('infracheck_auth_token')}` },
+                            body: JSON.stringify({ year, month })
+                          });
+                          alert('Mês recalculado com sucesso!');
+                        } catch (e: any) { alert(e.message); }
+                      }}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold transition-all shadow-sm"
+                    >
+                      Recalcular
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                  <h3 className="font-bold text-lg mb-4">Fechar Ciclo</h3>
+                  <p className="text-sm text-slate-500 mb-4">Fecha o ciclo para um técnico específico e consolida o resultado M1-M3.</p>
+                  <div className="flex gap-2 flex-col">
+                    <div className="flex gap-2">
+                      <input type="number" id="close-year" placeholder="Ano" className="flex-1 p-2 border rounded" defaultValue={new Date().getFullYear()} />
+                      <input type="number" id="close-cycle" placeholder="Ciclo (1-3)" className="flex-1 p-2 border rounded" />
+                    </div>
+                    <div className="flex gap-2">
+                      <select id="close-tech" className="flex-1 p-2 border rounded">
+                        <option value="">Selecione o Técnico</option>
+                        {users.filter(u => u.role === 'technician').map(u => (
+                          <option key={u.id} value={u.id}>{u.name}</option>
+                        ))}
+                      </select>
+                      <button 
+                        onClick={async () => {
+                          const year = parseInt((document.getElementById('close-year') as HTMLInputElement).value);
+                          const cycle = parseInt((document.getElementById('close-cycle') as HTMLInputElement).value);
+                          const technicianId = (document.getElementById('close-tech') as HTMLSelectElement).value;
+                          if (!year || !cycle || !technicianId) return alert('Preencha todos os campos');
+                          try {
+                            const res = await fetch('/api/goals/close-cycle', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('infracheck_auth_token')}` },
+                              body: JSON.stringify({ year, cycle, technicianId })
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error);
+                            alert('Ciclo fechado com sucesso! ' + data.result.status);
+                          } catch (e: any) { alert(e.message); }
+                        }}
+                        className="bg-green-600 text-white px-4 py-2 rounded font-bold"
+                      >
+                        Fechar Ciclo
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

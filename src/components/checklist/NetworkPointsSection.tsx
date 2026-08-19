@@ -11,8 +11,8 @@ const SectionTitle = ({ icon: Icon, title }: { icon: React.ElementType, title: s
   </div>
 );
 
-const InputLabel = ({ children }: { children?: React.ReactNode }) => (
-  <label className="block text-sm font-medium text-slate-700 mb-1">{children}</label>
+const InputLabel = ({ children, htmlFor }: { children?: React.ReactNode, htmlFor?: string }) => (
+  <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-700 mb-1">{children}</label>
 );
 
 const StyledInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
@@ -25,16 +25,16 @@ export const NetworkPointsSection = () => {
   return (
     <section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <SectionTitle icon={Network} title="4. Pontos de Rede" />
-        <div className="grid grid-cols-2 gap-4 mb-4">
-            <button type="button" onClick={() => updateField('networkPointsOk', true)} className={`p-4 rounded-xl border flex flex-col items-center gap-2 ${data.networkPointsOk ? 'border-green-500 bg-green-50 text-green-700' : 'bg-white'}`}><CheckCircle2 size={24} /><span className="text-sm font-bold">Pontos OK</span></button>
-            <button type="button" onClick={() => updateField('networkPointsOk', false)} className={`p-4 rounded-xl border flex flex-col items-center gap-2 ${!data.networkPointsOk ? 'border-red-500 bg-red-50 text-red-700' : 'bg-white'}`}><AlertCircle size={24} /><span className="text-sm font-bold">Problemas</span></button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <button type="button" onClick={() => updateField('networkPointsOk', true)} className={`p-4 rounded-xl border flex flex-col items-center gap-2 ${data.networkPointsOk === true ? 'border-green-500 bg-green-50 text-green-700' : 'bg-white'}`}><CheckCircle2 size={24} /><span className="text-sm font-bold whitespace-nowrap">Pontos OK</span></button>
+            <button type="button" onClick={() => updateField('networkPointsOk', false)} className={`p-4 rounded-xl border flex flex-col items-center gap-2 ${data.networkPointsOk === false ? 'border-red-500 bg-red-50 text-red-700' : 'bg-white'}`}><AlertCircle size={24} /><span className="text-sm font-bold whitespace-nowrap">Problemas</span></button>
         </div>
         <div className="mb-4">
-            <InputLabel>Observações Gerais</InputLabel>
-            <textarea className="w-full border rounded-md p-2" rows={2} placeholder="Estado geral dos pontos..." value={data.networkPointsNotes} onChange={e => updateField('networkPointsNotes', e.target.value)} />
+            <InputLabel htmlFor="networkPointsNotes">Observações Gerais</InputLabel>
+            <textarea id="networkPointsNotes" className="w-full border rounded-md p-2" rows={2} placeholder="Estado geral dos pontos..." value={data.networkPointsNotes} onChange={e => updateField('networkPointsNotes', e.target.value)} />
         </div>
         
-        {!data.networkPointsOk && (
+        {data.networkPointsOk === false && (
             <div className="space-y-4 mt-6 border-t pt-4">
                 <div className="flex justify-between items-center">
                     <h3 className="font-bold text-slate-700">Pontos com Defeito</h3>

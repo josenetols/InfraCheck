@@ -11,7 +11,7 @@ export interface MonthlyReviewState {
 
 export const useChecklistFlow = (data: ChecklistData, setData: React.Dispatch<React.SetStateAction<ChecklistData>>) => {
   const { user } = useAuth();
-  const [view, setView] = useState<'dashboard' | 'form' | 'preview' | 'admin'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'form' | 'preview' | 'admin' | 'history'>('dashboard');
   const [flowLoading, setFlowLoading] = useState(false);
   const [monthlyReview, setMonthlyReview] = useState<MonthlyReviewState | null>(null);
   const [savedChecklistId, setSavedChecklistId] = useState<string | null>(null);

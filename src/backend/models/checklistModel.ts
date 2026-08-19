@@ -35,30 +35,61 @@ export const getChecklistById = async (id: string) => {
 
 export const upsertChecklist = async (data: any) => {
   const id = data.id || randomUUID();
-  const upsertQuery = `
-    INSERT INTO checklists (id, location_name, technician_name, visit_date, data, is_baseline)
-    VALUES ($1, $2, $3, $4, $5, $6)
-    ON CONFLICT (id) DO UPDATE SET
-      location_name = EXCLUDED.location_name,
-      technician_name = EXCLUDED.technician_name,
-      visit_date = EXCLUDED.visit_date,
-      data = EXCLUDED.data,
-      is_baseline = EXCLUDED.is_baseline,
-      updated_at = NOW()
-    RETURNING id
-  `;
-  const values = [
-    id,
-    data.locationName,
-    data.technicianName,
-    data.visitDate,
-    data, // Objeto completo no JSONB
-    data.isBaseline || false
-  ];
+  const visitDate = new Date(data.visitDate);
+  const year = visitDate.getFullYear();
+  const month = visitDate.getMonth() + 1;
+  const cycle = Math.floor((month - 1) / 4) + 1;
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    // Look up location_id and technician_id
+    const locRes = await client.query('SELECT id FROM locations WHERE name = $1', [data.locationName]);
+    const techRes = await client.query('SELECT id FROM technicians WHERE name = $1', [data.technicianName]);
+    
+    // BUG-006: Não salvar checklist com IDs nulos — gera perda silenciosa nos cálculos de meta
+    if (!locRes.rows[0]) {
+      throw new Error(`Loja '${data.locationName}' não encontrada. Verifique o nome e tente novamente.`);
+    }
+    if (!techRes.rows[0]) {
+      throw new Error(`Técnico '${data.technicianName}' não encontrado. Verifique o cadastro.`);
+    }
+    
+    const location_id = locRes.rows[0].id;
+    const technician_id = techRes.rows[0].id;
+
+    const upsertQuery = `
+      INSERT INTO checklists (id, location_name, technician_name, location_id, technician_id, year, month, cycle, visit_date, data, is_baseline)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      ON CONFLICT (id) DO UPDATE SET
+        location_name = EXCLUDED.location_name,
+        technician_name = EXCLUDED.technician_name,
+        location_id = EXCLUDED.location_id,
+        technician_id = EXCLUDED.technician_id,
+        year = EXCLUDED.year,
+        month = EXCLUDED.month,
+        cycle = EXCLUDED.cycle,
+        visit_date = EXCLUDED.visit_date,
+        data = EXCLUDED.data,
+        is_baseline = EXCLUDED.is_baseline,
+        updated_at = NOW()
+      RETURNING id
+    `;
+    const values = [
+      id,
+      data.locationName,
+      data.technicianName,
+      location_id,
+      technician_id,
+      year,
+      month,
+      cycle,
+      data.visitDate,
+      data, 
+      data.isBaseline || false
+    ];
+
     const result = await client.query(upsertQuery, values);
     await client.query('COMMIT');
     return result.rows[0].id;
@@ -92,11 +123,6 @@ export const getLocationHistory = async (locationName: string) => {
 
 /**
  * Retorna o checklist completo (com JSONB data) mais recente de um local.
- *
- * 🧪 MODO TESTE (Opção B): retorna qualquer checklist, sem filtro de mês nem is_baseline.
- * Para produção (Opção A), usar:
- *   AND is_baseline = true
- *   AND visit_date < [início do mês atual]
  */
 export const getLatestChecklistByLocation = async (locationName: string) => {
   const result = await pool.query(
@@ -112,7 +138,6 @@ export const getLatestChecklistByLocation = async (locationName: string) => {
 
 /**
  * Extrai os itens pendentes/reprovados do JSONB de um checklist.
- * Lê todos os campos de problema conhecidos e retorna descrições legíveis.
  */
 export const extractPendingItems = (checklistData: any): { category: string; description: string }[] => {
   const items: { category: string; description: string }[] = [];

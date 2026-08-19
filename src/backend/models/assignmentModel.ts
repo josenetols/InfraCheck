@@ -1,37 +1,54 @@
-/**
- * Model de atribuições mensais — distribuição de lojas por técnico.
- * Substitui o localStorage infracheck_assignments por PostgreSQL.
- */
 import { pool } from '../../lib/db.js';
 
 export const getAssignments = async (monthKey: string, region?: string): Promise<Record<string, string>> => {
-  // Fallback inteligente: se o mês solicitado ainda não tem distribuição, pega o último gravado.
-  const checkRes = await pool.query('SELECT COUNT(*)::int as count FROM assignments WHERE month_key = $1', [monthKey]);
-  let targetMonth = monthKey;
-  if (checkRes.rows[0].count === 0) {
-    const maxRes = await pool.query('SELECT MAX(month_key) as max_month FROM assignments');
-    if (maxRes.rows[0].max_month) targetMonth = maxRes.rows[0].max_month;
-  }
+  // O formato do monthKey é "YYYY-MM"
+  const [yStr, mStr] = monthKey.split('-');
+  const year = parseInt(yStr, 10);
+  const month = parseInt(mStr, 10);
 
-  let query = 'SELECT location_name, technician_name FROM assignments WHERE month_key = $1';
-  const params: string[] = [targetMonth];
+  // Consideramos ativa no mês qualquer atribuição que started ANTES do fim do mês
+  // e ended DEPOIS do inicio do mês (ou end_date IS NULL)
+  const monthStart = `${year}-${mStr}-01T00:00:00Z`;
+  const monthEnd = new Date(year, month, 0, 23, 59, 59).toISOString();
+
+  let query = `
+    SELECT l.name as location_name, t.name as technician_name 
+    FROM assignments a
+    JOIN locations l ON a.location_id = l.id
+    JOIN technicians t ON a.technician_id = t.id
+    WHERE a.start_date <= $2 AND (a.end_date IS NULL OR a.end_date >= $1)
+  `;
+  const params: any[] = [monthStart, monthEnd];
 
   if (region) {
-    query += ` AND location_name IN (SELECT name FROM locations WHERE region_name = $2)`;
+    query += ` AND l.region_name = $3`;
     params.push(region);
   }
 
+  // Pegamos a última atribuição por loja (caso tenha havido mudança no mês, pegamos a mais recente)
+  query += ` ORDER BY a.start_date DESC`;
+
   const result = await pool.query(query, params);
   const assignments: Record<string, string> = {};
-  result.rows.forEach(r => { assignments[r.location_name] = r.technician_name; });
+  
+  result.rows.forEach(r => { 
+    if (!assignments[r.location_name]) {
+      assignments[r.location_name] = r.technician_name; 
+    }
+  });
   return assignments;
 };
 
-/** Regenera a distribuição do mês — embaralha lojas entre técnicos */
 export const regenerateAssignments = async (monthKey: string, region?: string, participatingTechnicians?: string[]): Promise<Record<string, string>> => {
-  // Buscar lojas
-  let locQuery = 'SELECT name FROM locations';
-  const locParams: string[] = [];
+  const [yStr, mStr] = monthKey.split('-');
+  const year = parseInt(yStr, 10);
+  const month = parseInt(mStr, 10);
+  const cycle = Math.floor((month - 1) / 4) + 1;
+  const now = new Date().toISOString();
+
+  // Buscar lojas com seus IDs
+  let locQuery = 'SELECT id, name FROM locations';
+  const locParams: any[] = [];
   if (region) {
     locQuery += ' WHERE region_name = $1';
     locParams.push(region);
@@ -40,29 +57,31 @@ export const regenerateAssignments = async (monthKey: string, region?: string, p
   const locations = await pool.query(locQuery, locParams);
 
   let techNames: string[] = [];
+  let techniciansData: any[] = [];
 
   if (participatingTechnicians && participatingTechnicians.length > 0) {
     techNames = participatingTechnicians;
+    const techs = await pool.query('SELECT id, name FROM technicians WHERE name = ANY($1)', [techNames]);
+    techniciansData = techs.rows;
   } else {
-    // Buscar técnicos ativos (fallback se não enviado pelo frontend)
-    let techQuery = "SELECT name FROM technicians WHERE active = true";
-    const techParams: string[] = [];
+    // Buscar técnicos ativos 
+    let techQuery = "SELECT id, name FROM technicians WHERE active = true";
+    const techParams: any[] = [];
     if (region) {
       techQuery += ' AND region_name = $1';
       techParams.push(region);
     }
     techQuery += ' ORDER BY name';
-    const technicians = await pool.query(techQuery, techParams);
-    techNames = technicians.rows.map(t => t.name);
+    const techniciansRes = await pool.query(techQuery, techParams);
+    techniciansData = techniciansRes.rows;
+    techNames = techniciansData.map(t => t.name);
   }
 
   if (techNames.length === 0 || locations.rows.length === 0) {
     return {};
   }
 
-  // Embaralhar com Fisher-Yates (garante distribuição uniforme)
-  // Nota: Math.random() - 0.5 é matematicamente inválido como comparador de sort()
-  // e causa viés sistemático na distribuição.
+  // Embaralhar com Fisher-Yates
   const shuffled = [...locations.rows];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -70,17 +89,47 @@ export const regenerateAssignments = async (monthKey: string, region?: string, p
   }
   const assignments: Record<string, string> = {};
 
-  for (let i = 0; i < shuffled.length; i++) {
-    const locName = shuffled[i].name;
-    const techName = techNames[i % techNames.length];
-    assignments[locName] = techName;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-    await pool.query(
-      `INSERT INTO assignments (month_key, location_name, technician_name)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (month_key, location_name) DO UPDATE SET technician_name = EXCLUDED.technician_name`,
-      [monthKey, locName, techName]
-    );
+    for (let i = 0; i < shuffled.length; i++) {
+      const loc = shuffled[i];
+      const techName = techNames[i % techNames.length];
+      const tech = techniciansData.find(t => t.name === techName);
+      
+      if (!tech) continue;
+      
+      assignments[loc.name] = tech.name;
+
+      // 1. Fechar atribuição ativa da loja, se houver, caso não seja do mesmo técnico
+      await client.query(`
+        UPDATE assignments 
+        SET active = false, end_date = $1 
+        WHERE location_id = $2 AND active = true AND technician_id != $3
+      `, [now, loc.id, tech.id]);
+
+      // 2. Criar ou manter a atribuição
+      // Se já houver uma ativa para o mesmo técnico e mesma loja, não precisamos fazer nada
+      const checkActive = await client.query(`
+        SELECT id FROM assignments WHERE location_id = $1 AND technician_id = $2 AND active = true
+      `, [loc.id, tech.id]);
+
+      if (checkActive.rows.length === 0) {
+        // Insere nova
+        await client.query(`
+          INSERT INTO assignments (location_name, technician_name, location_id, technician_id, year, cycle, start_date, active, month_key)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8)
+        `, [loc.name, tech.name, loc.id, tech.id, year, cycle, now, monthKey]);
+      }
+    }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
 
   return assignments;

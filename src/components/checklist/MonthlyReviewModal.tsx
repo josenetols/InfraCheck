@@ -60,16 +60,7 @@ const REVIEW_QUESTIONS: ReviewQuestion[] = [
         ? `${d.antennas.length} antena(s): ${d.antennas.map(a => a.brand || 'Sem marca').join(', ')}`
         : 'Nenhuma antena cadastrada anteriormente.',
   },
-  {
-    id: 'firewall',
-    icon: ShieldCheck,
-    title: 'Firewall',
-    question: 'O firewall ainda está funcionando normalmente?',
-    detail: (d) =>
-      d.hasFirewall
-        ? `Firewall ${d.firewallBrand} — ${d.firewallWorking ? 'Funcionando' : 'Com falha'}`
-        : 'Sem firewall cadastrado.',
-  },
+
   {
     id: 'machines',
     icon: Monitor,
@@ -133,13 +124,7 @@ function buildConfirmedData(
     skipped.push('antennas');
   }
 
-  if (answers['firewall']) {
-    confirmed.hasFirewall = previousData.hasFirewall;
-    confirmed.firewallBrand = previousData.firewallBrand;
-    confirmed.firewallWorking = previousData.firewallWorking;
-  } else {
-    skipped.push('firewall');
-  }
+
 
   if (answers['machines']) {
     confirmed.allMachinesOk = previousData.allMachinesOk;

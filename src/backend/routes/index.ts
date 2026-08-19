@@ -8,15 +8,18 @@ import emailRoutes from './emailRoutes.js';
 import authRoutes from './authRoutes.js';
 import assignmentRoutes from './assignmentRoutes.js';
 import collectionRoutes from './collectionRoutes.js';
+import goalRoutes from './goalRoutes.js';
 import { pool } from '../../lib/db.js';
 
 const router = Router();
 
-// Debug middleware
-router.use((req, _res, next) => {
-  console.log(`[API Debug] ${req.method} ${req.url} - Base: ${req.baseUrl}`);
-  next();
-});
+// Debug middleware — apenas em desenvolvimento
+if (process.env.NODE_ENV !== 'production') {
+  router.use((req, _res, next) => {
+    console.log(`[API Debug] ${req.method} ${req.url} - Base: ${req.baseUrl}`);
+    next();
+  });
+}
 
 // Rota de Saúde (Health) - Mantida no index por ser simples
 router.get('/health', async (_req, res) => {
@@ -38,5 +41,6 @@ router.use('/email', emailRoutes);
 router.use('/auth', authRoutes);
 router.use('/assignments', assignmentRoutes);
 router.use('/collection', collectionRoutes);
+router.use('/goals', goalRoutes);
 
 export default router;

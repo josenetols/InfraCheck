@@ -17,6 +17,31 @@ export interface ChecklistEntry {
   technician: string;
 }
 
+export interface MonthlyGoal {
+  technician_id: string;
+  year: number;
+  cycle: number;
+  month: number;
+  position_in_cycle: number;
+  assigned_locations: number;
+  expected_checklists: number;
+  completed_checklists: number;
+  percentage: number | null;
+  status: string;
+}
+
+export interface CycleGoal {
+  technician_id: string;
+  year: number;
+  cycle: number;
+  month_1_percentage: number | null;
+  month_2_percentage: number | null;
+  month_3_percentage: number | null;
+  average_percentage: number | null;
+  status: string;
+  closed_at: string | null;
+}
+
 /** Histórico completo: loja → lista de entradas */
 export type ChecklistHistory = Record<string, ChecklistEntry[]>;
 
@@ -149,16 +174,16 @@ export interface ChecklistData {
   firewallNotes: string;
 
   // 3. Machines
-  allMachinesOk: boolean;
+  allMachinesOk: boolean | null;
   problematicMachines: ProblematicMachine[];
 
   // 4. Network Points
-  networkPointsOk: boolean;
+  networkPointsOk: boolean | null;
   networkPointsNotes: string;
   problematicNetworkPoints: ProblematicNetworkPoint[]; 
 
   // 5. Satisfaction
-  employeesSatisfied: boolean;
+  employeesSatisfied: boolean | null;
   complaints: string;
 
   // Meta
@@ -193,14 +218,14 @@ export const initialChecklistState: ChecklistData = {
   firewallWorking: true,
   firewallNotes: '',
   
-  allMachinesOk: true,
+  allMachinesOk: null,
   problematicMachines: [],
   
-  networkPointsOk: true,
+  networkPointsOk: null,
   networkPointsNotes: '',
   problematicNetworkPoints: [],
   
-  employeesSatisfied: true,
+  employeesSatisfied: null,
   complaints: '',
   
   observations: '',

@@ -6,6 +6,7 @@ import { Login } from './pages/Login';
 import { SetPassword } from './pages/SetPassword';
 import { Admin } from './pages/Admin';
 import { ReportPreview } from './pages/ReportPreview';
+import { GoalHistory } from './pages/GoalHistory';
 
 import { ChecklistProvider, useChecklist } from './contexts/ChecklistContext';
 import { LocalInfoSection } from './components/checklist/LocalInfoSection';
@@ -57,6 +58,7 @@ function AppContent() {
 
   const renderContent = () => {
     if (view === 'admin' && isAdmin) return <Admin />;
+    if (view === 'history') return <GoalHistory />;
     if (view === 'dashboard') return <Dashboard onStartChecklist={startChecklistFromDashboard} onLoadReport={loadChecklistForReport} />;
     if (view === 'preview') return <ReportPreview onEdit={() => setView('form')} onDashboard={() => setView('dashboard')} checklistId={savedChecklistId} />;
     return <ChecklistForm onGenerateReport={handleGenerateReport} />;
@@ -91,6 +93,7 @@ function AppContent() {
           <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg overflow-x-auto">
               <button onClick={() => setView('dashboard')} className={`flex-1 flex min-w-[140px] items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-bold transition-all ${view === 'dashboard' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}><LayoutDashboard size={18} /> Painel Mensal</button>
               <button onClick={() => setView('form')} className={`flex-1 flex min-w-[140px] items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-bold transition-all ${view === 'form' || view === 'preview' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}><ClipboardList size={18} /> Novo Checklist</button>
+              <button onClick={() => setView('history')} className={`flex-1 flex min-w-[140px] items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-bold transition-all ${view === 'history' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}><ClipboardList size={18} /> Histórico Metas</button>
               {isAdmin && (
                   <button onClick={() => setView('admin')} className={`flex-1 flex min-w-[140px] items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-bold transition-all ${view === 'admin' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}><User size={18} /> Equipe / Admin</button>
               )}

@@ -11,8 +11,8 @@ const SectionTitle = ({ icon: Icon, title }: { icon: React.ElementType, title: s
   </div>
 );
 
-const InputLabel = ({ children }: { children?: React.ReactNode }) => (
-  <label className="block text-sm font-medium text-slate-700 mb-1">{children}</label>
+const InputLabel = ({ children, htmlFor }: { children?: React.ReactNode, htmlFor?: string }) => (
+  <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-700 mb-1">{children}</label>
 );
 
 const StyledInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
@@ -132,19 +132,66 @@ const SegmentedControl = ({
     })}
   </div>
 );
+const SWITCH_BRANDS = ["ARUBA", "CISCO", "3COM", "HPE", "INTELBRAS", "DELL"];
+const SWITCH_PORTS = ["8", "16", "24", "48"];
+const ANTENNA_BRANDS = ["ARUBA", "UNIFI"];
 
+const Combobox = ({ options, value, onChange, placeholder, type = 'text' }: { options: string[], value: string | number, onChange: (val: string) => void, placeholder?: string, type?: string }) => {
+  const [forceCustom, setForceCustom] = React.useState(false);
+  const isCustom = forceCustom || (value !== '' && value !== 0 && value !== null && !options.includes(String(value)));
+  const selectValue = isCustom ? 'OUTRO' : (value === 0 || value === null || value === '' ? '' : String(value));
+
+  return (
+    <div className="flex gap-2 w-full">
+      <div className={isCustom ? "w-1/3" : "w-full"}>
+        <StyledSelect 
+          value={selectValue} 
+          onChange={e => {
+            if (e.target.value === 'OUTRO') {
+               setForceCustom(true);
+               onChange('');
+            } else {
+               setForceCustom(false);
+               onChange(e.target.value);
+            }
+          }}
+        >
+          <option value="" disabled>Selecione...</option>
+          {options.map(o => <option key={o} value={o}>{o}</option>)}
+          <option value="OUTRO">Outro...</option>
+        </StyledSelect>
+      </div>
+      {isCustom && (
+        <div className="min-w-0 flex-1 relative">
+          <StyledInput 
+             type={type} 
+             autoFocus 
+             placeholder={placeholder} 
+             value={value === 0 ? '' : value} 
+             onChange={e => {
+                setForceCustom(true);
+                onChange(e.target.value);
+             }} 
+          />
+          <button 
+             type="button" 
+             onClick={() => { setForceCustom(false); onChange(''); }} 
+             className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 font-bold text-xs p-2" 
+             title="Cancelar"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 export const CpdSection = () => {
   const { 
     data, updateField, handleCpdPhotosChange, 
     addSwitch, removeSwitch, updateSwitch,
     addAntenna, removeAntenna, updateAntenna
   } = useChecklist();
-
-  const handleFirewallBrandChange = (value: string) => {
-    if (value === 'Outro') updateField('firewallBrand', '');
-    else updateField('firewallBrand', value);
-  };
-  const firewallSelectValue = ['Fortinet', 'SonicWall'].includes(data.firewallBrand) ? data.firewallBrand : 'Outro';
 
   return (
     <section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
@@ -157,8 +204,8 @@ export const CpdSection = () => {
             <RadioCard label="Desorganizado" description="Emaranhado crítico, difícil identificação ou risco de desconexão." color="red" icon={AlertCircle} checked={data.cableCondition === 'Desorganizado'} onClick={() => updateField('cableCondition', 'Desorganizado')} />
         </div>
         <div className="mt-3">
-          <InputLabel>Observações sobre Cabos</InputLabel>
-          <textarea className="w-full p-2 border rounded-md text-sm" placeholder="Detalhes adicionais..." rows={2} value={data.cableNotes} onChange={e => updateField('cableNotes', e.target.value)} />
+          <InputLabel htmlFor="cableNotes">Observações sobre Cabos</InputLabel>
+          <textarea id="cableNotes" className="w-full p-2 border rounded-md text-sm" placeholder="Detalhes adicionais..." rows={2} value={data.cableNotes} onChange={e => updateField('cableNotes', e.target.value)} />
         </div>
         <div className="mt-4">
             <PhotoUpload photos={data.cpdPhotos} onPhotosChange={handleCpdPhotosChange} label="Fotos do CPD / Rack" />
@@ -175,8 +222,8 @@ export const CpdSection = () => {
                     <button type="button" onClick={() => removeSwitch(sw.id)} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 p-1"><Trash2 size={16} /></button>
                     <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                         <div><label className="text-xs text-slate-500 block mb-1">Qtd.</label><QuantitySelector value={sw.quantity} onChange={val => updateSwitch(sw.id, 'quantity', val)} /></div>
-                        <div className="col-span-2"><label className="text-xs text-slate-500 block mb-1">Marca/Modelo</label><StyledInput placeholder="Ex: Cisco 2960" value={`${sw.brand} ${sw.model}`.trim()} onChange={e => updateSwitch(sw.id, 'brand', e.target.value)} /></div>
-                        <div><label className="text-xs text-slate-500 block mb-1">Portas</label><StyledInput type="number" placeholder="24" value={sw.ports} onChange={e => updateSwitch(sw.id, 'ports', parseInt(e.target.value))} /></div>
+                        <div className="col-span-2"><label className="text-xs text-slate-500 block mb-1">Marca/Modelo</label><Combobox options={SWITCH_BRANDS} placeholder="Ex: CISCO" value={sw.brand} onChange={val => updateSwitch(sw.id, 'brand', val)} /></div>
+                        <div><label className="text-xs text-slate-500 block mb-1">Portas</label><Combobox options={SWITCH_PORTS} type="number" placeholder="24" value={sw.ports} onChange={val => updateSwitch(sw.id, 'ports', val ? parseInt(val) : 0)} /></div>
                         <div className="col-span-2"><label className="text-xs text-slate-500 block mb-1">Condição</label><SegmentedControl value={sw.conditionOk} onChange={val => updateSwitch(sw.id, 'conditionOk', val)} options={[{ label: 'OK', value: true, color: 'text-green-600' }, { label: 'Falha', value: false, color: 'text-red-600' }]} /></div>
                     </div>
                 </div>
@@ -194,24 +241,12 @@ export const CpdSection = () => {
                     <button type="button" onClick={() => removeAntenna(ant.id)} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 p-1"><Trash2 size={16} /></button>
                     <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                         <div><label className="text-xs text-slate-500 block mb-1">Qtd.</label><QuantitySelector value={ant.quantity} onChange={val => updateAntenna(ant.id, 'quantity', val)} /></div>
-                        <div className="col-span-2"><label className="text-xs text-slate-500 block mb-1">Marca/Modelo</label><StyledInput placeholder="Ex: UniFi U6" value={ant.brand} onChange={e => updateAntenna(ant.id, 'brand', e.target.value)} /></div>
+                        <div className="col-span-2"><label className="text-xs text-slate-500 block mb-1">Marca/Modelo</label><Combobox options={ANTENNA_BRANDS} placeholder="Ex: UNIFI" value={ant.brand} onChange={val => updateAntenna(ant.id, 'brand', val)} /></div>
                         <div className="col-span-3"><label className="text-xs text-slate-500 block mb-1">Local</label><StyledInput placeholder="Ex: Teto - Recepção" value={ant.location} onChange={e => updateAntenna(ant.id, 'location', e.target.value)} /></div>
                     </div>
                 </div>
             ))}
         </div>
-      </div>
-      <div className="border-t pt-4">
-         <InputLabel>2.4 Firewall</InputLabel>
-         <div className="flex items-center gap-4 mb-3 mt-2">
-             <RadioCard label={data.hasFirewall ? "Com Firewall" : "Sem Firewall"} checked={data.hasFirewall} onClick={() => updateField('hasFirewall', !data.hasFirewall)} icon={ShieldCheck} color={data.hasFirewall ? 'green' : 'blue'} />
-         </div>
-         {data.hasFirewall && (
-             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid md:grid-cols-2 gap-4">
-                <div><InputLabel>Marca</InputLabel><StyledSelect value={firewallSelectValue} onChange={(e) => handleFirewallBrandChange(e.target.value)}><option value="Fortinet">Fortinet</option><option value="SonicWall">SonicWall</option><option value="Outro">Outro</option></StyledSelect></div>
-                <div><InputLabel>Status</InputLabel><SegmentedControl value={data.firewallWorking} onChange={val => updateField('firewallWorking', val)} options={[{ label: 'OK', value: true, color: 'text-green-600' }, { label: 'Falha', value: false, color: 'text-red-600' }]} /></div>
-             </div>
-         )}
       </div>
     </section>
   );

@@ -7,9 +7,10 @@ interface AutocompleteProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  id?: string;
 }
 
-export const Autocomplete: React.FC<AutocompleteProps> = ({ label, value, onChange, placeholder }) => {
+export const Autocomplete: React.FC<AutocompleteProps> = ({ label, value, onChange, placeholder, id }) => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [customLocations, setCustomLocations] = useState<string[]>([]);
@@ -86,9 +87,10 @@ export const Autocomplete: React.FC<AutocompleteProps> = ({ label, value, onChan
 
   return (
     <div className="w-full relative" ref={wrapperRef}>
-      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+      <label htmlFor={id} className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
       <div className="relative">
         <input
+          id={id}
           type="text"
           className="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border pl-10"
           value={value}

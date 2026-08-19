@@ -5,7 +5,7 @@ import autoTable from 'jspdf-autotable';
 // ─── Helpers gerais ───────────────────────────────────────────────────────────
 
 const formatDate = (isoString: string) => new Date(isoString).toLocaleString('pt-BR');
-const boolToText = (val: boolean) => (val ? 'Sim' : 'Não');
+const boolToText = (val: boolean | null | undefined) => (val === true ? 'Sim' : val === false ? 'Não' : 'Não avaliado');
 
 /**
  * Converte um objeto Photo para um dataURL base64 válido para embed em PDF/DOCX.
@@ -497,7 +497,7 @@ export const downloadPDF = async (data: ChecklistData, checklistId?: string) => 
   /**
    * Badge de status colorido
    */
-  const addStatusBadge = (text: string, isOk: boolean, x: number, yPos: number) => {
+  const addStatusBadge = (text: string, isOk: boolean | null, x: number, yPos: number) => {
     const badgeColor = isOk ? [34, 197, 94] : [239, 68, 68]; // green or red
     const textColor = [255, 255, 255];
     const badgeWidth = doc.getTextWidth(text) + 8;

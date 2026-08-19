@@ -11,7 +11,7 @@ import { AdminSummaryResponse, RegionStatResponse, AdminPendingStore } from '../
 import { UserEditModal } from '../components/UserEditModal';
 import { UserResponse } from '../services/userService';
 
-type TabType = 'dashboard' | 'regions' | 'stores' | 'users' | 'collection';
+type TabType = 'dashboard' | 'regions' | 'stores' | 'users' | 'collection' | 'cycles';
 
 // ─── Toast simples (substitui alert/confirm quando não há modal disponível) ────
 // TODO: substituir por um componente <Modal /> quando o backend for integrado.

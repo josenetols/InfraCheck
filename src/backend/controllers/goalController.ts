@@ -17,7 +17,7 @@ export const getCurrentCycleGoal = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'ID do técnico não fornecido' });
     }
     
-    const goalData = await goalModel.getCurrentCycleGoal(technicianId);
+    const goalData = await goalModel.getCurrentCycleGoal(technicianId as string);
     res.json(goalData);
   } catch (err) {
     console.error('Erro ao buscar meta do ciclo atual:', err);

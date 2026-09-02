@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { testConnection } from './src/lib/db.js';
@@ -10,7 +11,20 @@ dotenv.config({ path: '.env.local' });
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-app.use(cors());
+// Content-Security-Policy fica desabilitada por ora: o index.html carrega
+// scripts/estilos de CDNs externos (Tailwind CDN, Google Fonts) que exigiriam
+// diretivas explícitas. Os demais headers de segurança do helmet permanecem ativos.
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// CORS restrito: por padrão só aceita requisições same-origin (front e API
+// no mesmo processo Express). Para liberar origens externas, defina
+// ALLOWED_ORIGINS="https://exemplo.com,https://outro.com" no ambiente.
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+app.use(cors({ origin: allowedOrigins.length > 0 ? allowedOrigins : false }));
+
 app.use(express.json({ limit: '100mb' })); // Limite maior para imagens base64 e PDFs
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 

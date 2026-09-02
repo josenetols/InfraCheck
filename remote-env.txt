@@ -1,3 +1,0 @@
-DATABASE_URL="postgresql://postgres.kwjulnzfwrkeqdmaioxg:Y_i5M9+4g8!fN6_@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
-JWT_SECRET="InfracheckSecreta@2026!"
-JWT_EXPIRES_IN="8h"

@@ -2,6 +2,17 @@ import { Request, Response } from 'express';
 import nodemailer from 'nodemailer';
 import { pool } from '../../lib/db.js';
 
+/** Escapa caracteres HTML para evitar injeção de markup/scripts no e-mail renderizado. */
+const escapeHtml = (value: unknown): string => {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 export const sendReportEmail = async (req: Request, res: Response) => {
   const { recipientEmail, subject, message } = req.body;
 
@@ -103,14 +114,14 @@ export const sendReportEmail = async (req: Request, res: Response) => {
 
         <!-- Meta Info -->
         <div style="background-color: #f4f7fa; padding: 15px 20px; border-bottom: 1px solid #ddd;">
-          <p style="margin: 0 0 5px 0;"><strong>Local:</strong> ${data.locationName}</p>
+          <p style="margin: 0 0 5px 0;"><strong>Local:</strong> ${escapeHtml(data.locationName)}</p>
           <p style="margin: 0 0 5px 0;"><strong>Data da Visita:</strong> ${data.visitDate ? formatDate(data.visitDate) : 'N/A'}</p>
-          <p style="margin: 0;"><strong>Técnico:</strong> ${data.technicianName}</p>
+          <p style="margin: 0;"><strong>Técnico:</strong> ${escapeHtml(data.technicianName)}</p>
         </div>
 
         <!-- Mensagem do Técnico -->
         <div style="padding: 20px; background: #fff; border-bottom: 1px solid #eee;">
-          ${(message || '').replace(/\n/g, '<br/>')}
+          ${escapeHtml(message).replace(/\n/g, '<br/>')}
         </div>
     `;
 
@@ -126,9 +137,9 @@ export const sendReportEmail = async (req: Request, res: Response) => {
       data.problematicMachines.forEach((pm: any, idx: number) => {
         problemsHtml += `
           <div style="background: #fff8f8; border-left: 4px solid #d32f2f; padding: 10px 15px; margin-bottom: 15px; border-radius: 0 4px 4px 0;">
-            <p style="margin: 0 0 5px 0;"><strong>ID da Máquina:</strong> ${pm.identifier}</p>
-            <p style="margin: 0 0 5px 0;"><strong>Processador:</strong> ${pm.processorGen || 'N/A'} | <strong>Windows 11:</strong> ${boolText(pm.osUpdated)}</p>
-            <p style="margin: 0 0 10px 0; color: #b71c1c;"><strong>Problema Relatado:</strong> ${pm.problemDescription}</p>
+            <p style="margin: 0 0 5px 0;"><strong>ID da Máquina:</strong> ${escapeHtml(pm.identifier)}</p>
+            <p style="margin: 0 0 5px 0;"><strong>Processador:</strong> ${escapeHtml(pm.processorGen) || 'N/A'} | <strong>Windows 11:</strong> ${boolText(pm.osUpdated)}</p>
+            <p style="margin: 0 0 10px 0; color: #b71c1c;"><strong>Problema Relatado:</strong> ${escapeHtml(pm.problemDescription)}</p>
             ${renderPhotos(pm.photos || [])}
           </div>
         `;
@@ -142,8 +153,8 @@ export const sendReportEmail = async (req: Request, res: Response) => {
       data.problematicNetworkPoints.forEach((np: any, idx: number) => {
         problemsHtml += `
           <div style="background: #fff8f8; border-left: 4px solid #d32f2f; padding: 10px 15px; margin-bottom: 15px; border-radius: 0 4px 4px 0;">
-            <p style="margin: 0 0 5px 0;"><strong>Local do Ponto:</strong> ${np.location}</p>
-            <p style="margin: 0 0 10px 0; color: #b71c1c;"><strong>Descrição:</strong> ${np.description}</p>
+            <p style="margin: 0 0 5px 0;"><strong>Local do Ponto:</strong> ${escapeHtml(np.location)}</p>
+            <p style="margin: 0 0 10px 0; color: #b71c1c;"><strong>Descrição:</strong> ${escapeHtml(np.description)}</p>
             ${renderPhotos(np.photos || [])}
           </div>
         `;
@@ -182,7 +193,7 @@ export const sendReportEmail = async (req: Request, res: Response) => {
           <p style="color: #aac4e0; margin: 4px 0 0 0; font-size: 12px;">SAGA - TI Field GO</p>
         </div>
         <div style="background: #f9f9f9; border: 1px solid #e0e0e0; border-top: none; padding: 24px; border-radius: 0 0 6px 6px; white-space: pre-wrap;">
-          ${(message || '').replace(/\n/g, '<br/>')}
+          ${escapeHtml(message).replace(/\n/g, '<br/>')}
         </div>
         <p style="font-size: 11px; color: #999; margin-top: 12px;">Este e-mail foi gerado automaticamente pelo sistema InfraCheck BR.</p>
       </div>

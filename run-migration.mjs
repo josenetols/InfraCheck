@@ -1,10 +1,14 @@
 import fs from 'fs';
 import pg from 'pg';
 
-const connectionString = 'postgresql://postgres.kwjulnzfwrkeqdmaioxg:Y_i5M9+4g8!fN6_@aws-1-us-west-2.pooler.supabase.com:5432/postgres';
+const env = fs.readFileSync('.env.local', 'utf8').split('\n').reduce((a, b) => {
+  const i = b.indexOf('=');
+  if (i > 0) a[b.substring(0, i).trim()] = b.substring(i + 1).trim();
+  return a;
+}, {});
 
 const pool = new pg.Pool({
-  connectionString,
+  connectionString: env['DATABASE_URL'],
   ssl: { rejectUnauthorized: false }
 });
 
